@@ -99,4 +99,123 @@ S3_BUCKET_NAME=your_bucket_name
 
 ## License
 
-MIT License 
+MIT License
+
+## End-to-End Setup Guide
+
+Follow these steps to set up and run the Instagram Auto Poster end-to-end:
+
+### 1. Prerequisites
+- **AWS Account** (for Lambda, S3, ECR, EventBridge)
+- **Instagram Account** (username & password)
+- **Docker** installed locally
+- **Python 3.9+** (for local testing)
+
+### 2. Clone the Repository
+```bash
+git clone https://github.com/yourusername/instagram-auto-poster.git
+cd instagram-auto-poster
+```
+
+### 3. Install Python Dependencies (for local testing)
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Create and Configure AWS S3 Bucket
+- Go to the AWS S3 console
+- Click "Create bucket"
+- Name your bucket (e.g., `my-instagram-images`)
+- Leave all other settings as default or adjust as needed
+- Upload a few test images to the bucket
+
+### 5. Set Up AWS IAM User for Programmatic Access
+- Go to AWS IAM console
+- Create a new user with programmatic access
+- Attach the following policies:
+  - `AmazonS3FullAccess` (or restrict to your bucket)
+  - `AWSLambda_FullAccess`
+  - `AmazonEventBridgeFullAccess`
+  - `AmazonEC2ContainerRegistryFullAccess`
+- Save the Access Key ID and Secret Access Key
+
+### 6. Create a `.env` File
+Create a `.env` file in the project root with:
+```
+INSTAGRAM_USERNAME=your_instagram_username
+INSTAGRAM_PASSWORD=your_instagram_password
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+S3_BUCKET_NAME=your_s3_bucket_name
+```
+
+### 7. Build and Push Docker Image to AWS ECR
+- Go to AWS ECR console
+- Create a new repository (e.g., `instagram-auto-poster`)
+- Authenticate Docker to your ECR:
+  ```bash
+  aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
+  ```
+- Build and tag the Docker image:
+  ```bash
+  docker build -t instagram-auto-poster .
+  docker tag instagram-auto-poster:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/instagram-auto-poster:latest
+  ```
+- Push the image:
+  ```bash
+  docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/instagram-auto-poster:latest
+  ```
+
+### 8. Create Lambda Function from Container Image
+- Go to AWS Lambda console
+- Click "Create function"
+- Choose "Container image"
+- Enter a function name (e.g., `InstagramAutoPoster`)
+- For Container image URI, use the ECR image URI you pushed
+- Set environment variables from your `.env` file
+- Set the handler to: `src.handlers.lambda_handler.lambda_handler`
+- Set the timeout to at least 1 minute
+
+### 9. Set Up EventBridge (CloudWatch Events) for Scheduling
+- Go to AWS EventBridge console
+- Create a new rule
+- Choose "Schedule" and set your desired cron or rate expression (e.g., `cron(0 12 * * ? *)` for every day at noon UTC)
+- Add the Lambda function as the target
+
+### 10. Test the Setup
+- Upload a test image to your S3 bucket
+- Trigger the Lambda manually or wait for the schedule
+- Check Instagram for the new post
+- Check S3 to confirm the image was deleted
+
+### 11. Troubleshooting
+- Check Lambda logs in AWS CloudWatch for errors
+- Ensure your IAM user has the correct permissions
+- Make sure your Instagram credentials are correct and not locked by Instagram
+- Ensure your images meet Instagram's requirements (see validator)
+
+### 12. Local Testing (Optional)
+You can run the handler locally for testing:
+```bash
+python -m src.handlers.lambda_handler
+```
+
+---
+
+## Manual Steps Required
+- AWS account setup (S3, Lambda, ECR, EventBridge)
+- Instagram account setup
+- IAM user creation and permissions
+- Docker installation and ECR authentication
+- Environment variable configuration
+- Manual upload of images to S3
+
+---
+
+## FAQ
+- **Q:** Why do I need to use my own Instagram credentials?
+  **A:** Instagram does not provide a public API for posting; automation requires your credentials. Use a dedicated account for safety.
+- **Q:** Can I use this for business/brand accounts?
+  **A:** Yes, but be aware of Instagram's automation policies.
+- **Q:** Is this free?
+  **A:** All AWS services used have a free tier. Stay within limits to avoid charges.
