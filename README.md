@@ -101,6 +101,34 @@ S3_BUCKET_NAME=your_bucket_name
 
 MIT License
 
+## Prerequisites
+
+**Tip:** You may need to restart your shell after each installation or you'll get "The term 'aws' is not recognized as the name of a cmdlet, function, script file, or operable program.". 
+Another option is to update path variables manually, e.g.: $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+Before starting the setup, ensure you have the following tools installed:
+
+### 1. AWS CLI
+- **Installation:** Download and install from [AWS CLI official website](https://aws.amazon.com/cli/)
+- **Verification:** Run `aws --version` in your terminal
+- **Configuration:** Run `aws configure` to set up your AWS credentials
+
+### 2. AWS Tools for PowerShell
+- **Installation:** Install from PowerShell Gallery:
+  ```powershell
+  Install-Module -Name AWS.Tools.ECR -Force -Scope CurrentUser
+  Install-Module -Name AWS.Tools.Common -Force -Scope CurrentUser
+  ```
+- **Verification:** Run `Get-AWSPowerShellVersion` in PowerShell
+
+### 3. Docker Desktop
+- **Installation:** Download and install from [Docker official website](https://www.docker.com/products/docker-desktop/)
+- **Verification:** Run `docker --version` in your terminal
+- **Start Docker:** Ensure Docker Desktop is running before proceeding
+
+### 4. Python 3.8+
+- **Verification:** Run `python --version` in your terminal
+
 ## End-to-End Setup Guide
 
 Follow these steps to set up and run the Instagram Auto Poster end-to-end:
@@ -123,70 +151,114 @@ pip install -r requirements.txt
 ```
 
 ### 4. Create and Configure AWS S3 Bucket
-- Go to the AWS S3 console
-- Click "Create bucket"
-- Name your bucket (e.g., `my-instagram-images`)
-- Leave all other settings as default or adjust as needed
-- Upload a few test images to the bucket
+- Log in to your AWS Console and navigate to the S3 service.
+- Click "Create bucket".
+- Enter a unique bucket name (e.g., `my-instagram-images`).
+- Choose your preferred AWS region.
+- Leave other settings as default, or adjust as needed.
+- Click "Create bucket".
+- Click on your new bucket, then "Upload" to add a few images that meet Instagram's requirements (see validator section below).
+- Complete the upload.
+
+**Tip:** Images must meet Instagram's requirements (see validator in the code or below for details on size, aspect ratio, and file type).
 
 ### 5. Set Up AWS IAM User for Programmatic Access
-- Go to AWS IAM console
-- Create a new user with programmatic access
-- Attach the following policies:
-  - `AmazonS3FullAccess` (or restrict to your bucket)
-  - `AWSLambda_FullAccess`
-  - `AmazonEventBridgeFullAccess`
-  - `AmazonEC2ContainerRegistryFullAccess`
-- Save the Access Key ID and Secret Access Key
+- Log in to your AWS Console and navigate to the IAM service.
+- Click "Users" in the left sidebar, then "Create user".
+- Enter a username (e.g., `instagram-auto-poster`).
+- **Select "Command Line Interface (CLI)"** for programmatic access (this generates the Access Key ID and Secret Access Key).
+- Click "Next: Permissions".
+- Choose "Attach policies directly".
+- Search for and select "AmazonS3FullAccess" (or create a custom policy for more restricted access).
+- Click "Next: Tags" (optional), then "Next: Review".
+- Click "Create user".
+- **Important:** Copy the Access Key ID and Secret Access Key immediately. You won't be able to see the secret again.
+- Add these to your `.env` file:
+  ```
+  AWS_ACCESS_KEY_ID=your_access_key_id
+  AWS_SECRET_ACCESS_KEY=your_secret_access_key
+  ```
 
 ### 6. Create a `.env` File
-Create a `.env` file in the project root with:
-```
-INSTAGRAM_USERNAME=your_instagram_username
-INSTAGRAM_PASSWORD=your_instagram_password
-AWS_ACCESS_KEY_ID=your_aws_access_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-S3_BUCKET_NAME=your_s3_bucket_name
-```
+- In your project root, create a file named `.env`.
+- Add the following, replacing with your actual values:
+  ```
+  INSTAGRAM_USERNAME=your_instagram_username
+  INSTAGRAM_PASSWORD=your_instagram_password
+  AWS_ACCESS_KEY_ID=your_access_key_id
+  AWS_SECRET_ACCESS_KEY=your_secret_access_key
+  S3_BUCKET_NAME=your_s3_bucket_name
+  ```
 
 ### 7. Build and Push Docker Image to AWS ECR
-- Go to AWS ECR console
-- Create a new repository (e.g., `instagram-auto-poster`)
-- Authenticate Docker to your ECR:
-  ```bash
-  aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
-  ```
-- Build and tag the Docker image:
-  ```bash
-  docker build -t instagram-auto-poster .
-  docker tag instagram-auto-poster:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/instagram-auto-poster:latest
-  ```
-- Push the image:
-  ```bash
-  docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/instagram-auto-poster:latest
-  ```
+
+**Prerequisites Check:**
+- Ensure Docker Desktop is running
+- Verify AWS CLI or AWS Tools for PowerShell are installed
+- Confirm you have ECR permissions in your AWS account
+
+**Authentication Methods:**
+
+**Option A: Using AWS CLI (Recommended)**
+```bash
+# Authenticate Docker to ECR
+aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
+
+# Build the Docker image
+docker build -t <your-repo-name> .
+
+# Tag the image for ECR
+docker tag <your-repo-name>:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest
+
+# Push to ECR
+docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest
+```
+
+**Option B: Using AWS Tools for PowerShell**
+```powershell
+# Authenticate Docker to ECR
+(Get-ECRLoginCommand -Region <your-region>).Password | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
+
+# Build the Docker image
+docker build -t <your-repo-name> .
+
+# Tag the image for ECR
+docker tag <your-repo-name>:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest
+
+# Push to ECR
+docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest
+```
+
+**Note:** Replace `<your-account-id>`, `<your-region>`, and `<your-repo-name>` with your actual AWS account ID, AWS region, and ECR repository name.
 
 ### 8. Create Lambda Function from Container Image
-- Go to AWS Lambda console
-- Click "Create function"
-- Choose "Container image"
-- Enter a function name (e.g., `InstagramAutoPoster`)
-- For Container image URI, use the ECR image URI you pushed
-- Set environment variables from your `.env` file
+- Go to AWS Lambda Console.
+- Click "Create function".
+- Choose "Container image".
+- Enter a function name (e.g., `InstagramAutoPoster`).
+- For Container image URI, use the ECR image URI you pushed.
+- Set environment variables from your `.env` file (in the Lambda console, add each variable under the Configuration > Environment variables section).
 - Set the handler to: `src.handlers.lambda_handler.lambda_handler`
-- Set the timeout to at least 1 minute
+- Set the timeout to at least 1 minute (increase if you expect large images or slow network).
 
 ### 9. Set Up EventBridge (CloudWatch Events) for Scheduling
-- Go to AWS EventBridge console
-- Create a new rule
-- Choose "Schedule" and set your desired cron or rate expression (e.g., `cron(0 12 * * ? *)` for every day at noon UTC)
-- Add the Lambda function as the target
+- Go to AWS EventBridge Console.
+- Create a new rule.
+- Choose "Schedule" and set your desired cron or rate expression (e.g., `cron(0 12 * * ? *)` for every day at noon UTC).
+- Add the Lambda function as the target.
 
 ### 10. Test the Setup
-- Upload a test image to your S3 bucket
-- Trigger the Lambda manually or wait for the schedule
-- Check Instagram for the new post
-- Check S3 to confirm the image was deleted
+- Upload a test image to your S3 bucket (if not already done).
+- Trigger the Lambda manually from the AWS Lambda console (Actions > Invoke) or wait for the scheduled EventBridge rule.
+- Check Instagram for the new post.
+- Check S3 to confirm the image was deleted.
+
+**Troubleshooting:**
+- Check Lambda logs in AWS CloudWatch for errors.
+- Ensure your IAM user has the correct permissions.
+- Make sure your Instagram credentials are correct and not locked by Instagram.
+- Ensure your images meet Instagram's requirements (see validator section below).
+- If you encounter issues, review the error messages and consult AWS and Instagram documentation as needed.
 
 ### 11. Troubleshooting
 - Check Lambda logs in AWS CloudWatch for errors
@@ -199,6 +271,38 @@ You can run the handler locally for testing:
 ```bash
 python -m src.handlers.lambda_handler
 ```
+
+## Local End-to-End Testing
+
+You can test the full workflow locally before deploying to AWS Lambda. This is useful for debugging and verifying your setup.
+
+### Steps for Local E2E Testing
+
+1. **Ensure your `.env` file is present in the project root** with all required variables:
+   ```
+   INSTAGRAM_USERNAME=your_instagram_username
+   INSTAGRAM_PASSWORD=your_instagram_password
+   AWS_ACCESS_KEY_ID=your_access_key_id
+   AWS_SECRET_ACCESS_KEY=your_secret_access_key
+   S3_BUCKET_NAME=your_s3_bucket_name
+   ```
+2. **Upload at least one valid image to your S3 bucket** (see validator requirements).
+
+3. **Run the Lambda handler locally:**
+   ```bash
+   python -m src.handlers.lambda_handler
+   ```
+   - This will attempt to fetch the oldest image from your S3 bucket, validate it, post it to Instagram, and delete it from S3.
+   - Output and errors will be printed to the console.
+
+4. **Check Instagram and S3** to confirm the post and deletion.
+
+### Troubleshooting Local Runs
+- If you see errors about missing environment variables, double-check your `.env` file and variable names.
+- If you get authentication errors, verify your AWS and Instagram credentials.
+- If the script cannot find images, ensure your S3 bucket name is correct and the bucket contains images.
+- If you get image validation errors, check the image size, aspect ratio, and file type.
+- For more details, add print statements or increase logging verbosity in the code.
 
 ---
 
