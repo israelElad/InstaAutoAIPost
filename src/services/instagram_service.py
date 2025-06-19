@@ -5,6 +5,9 @@ import io
 from PIL import Image
 import requests
 import json
+import tempfile
+import os
+from pathlib import Path
 
 class InstagramService:
     def __init__(self):
@@ -47,19 +50,27 @@ class InstagramService:
             bool: True if posting was successful
         """
         try:
-            # Convert bytes to PIL Image
-            image = Image.open(io.BytesIO(image_data))
+            # Save image data to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+                temp_file.write(image_data)
+                temp_file_path = temp_file.name
             
-            # Generate caption
-            caption = self._generate_caption(image_data)
-            
-            # Upload photo
-            media = self.client.photo_upload(
-                image,
-                caption=caption
-            )
-            
-            return True
+            try:
+                # Generate caption
+                caption = self._generate_caption(image_data)
+                
+                # Upload photo using file path
+                media = self.client.photo_upload(
+                    Path(temp_file_path),
+                    caption=caption
+                )
+                
+                return True
+                
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
             
         except ClientError as e:
             raise Exception(f"Instagram API error: {str(e)}")

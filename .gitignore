@@ -151,6 +151,9 @@ lambda-deployment.zip
 local_test_log.txt
 local_run_log.txt
 test_aws_connection.py
+test_output/
+test_local_image_processing.py
+test_image_processing_simple.py
 
 # AWS
 .aws/
