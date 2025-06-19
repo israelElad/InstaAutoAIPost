@@ -34,12 +34,16 @@ def validate_config():
     required_vars = [
         'INSTAGRAM_USERNAME',
         'INSTAGRAM_PASSWORD',
-        'AWS_ACCESS_KEY_ID',
-        'AWS_SECRET_ACCESS_KEY',
         'S3_BUCKET_NAME'
     ]
     
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
-        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}") 
+        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+    
+    # Check if running on Lambda
+    if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
+        print("Running on AWS Lambda - using execution role credentials")
+    else:
+        print("Running locally - using explicit credentials if provided") 

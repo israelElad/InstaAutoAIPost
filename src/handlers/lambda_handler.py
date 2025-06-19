@@ -84,4 +84,10 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'message': f'Unexpected error: {str(e)}'
             })
-        } 
+        }
+
+if __name__ == "__main__":
+    print("[Local Test] Running lambda_handler with dummy event...")
+    response = lambda_handler({}, None)
+    print("[Local Test] Handler response:")
+    print(json.dumps(response, indent=2)) 

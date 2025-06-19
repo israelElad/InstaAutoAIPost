@@ -1,17 +1,54 @@
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError
 from datetime import datetime
-from ..config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_BUCKET_NAME
+import os
+import logging
+from ..config import S3_BUCKET_NAME
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 class S3Service:
     def __init__(self):
-        """Initialize S3 client with credentials."""
-        self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY
-        )
-        self.bucket_name = S3_BUCKET_NAME
+        """Initialize S3 client using Lambda execution role credentials or local credentials."""
+        try:
+            region = os.getenv('AWS_REGION', 'us-east-1')
+            logger.info(f"Initializing S3Service. Detected region: {region}")
+            logger.info(f"S3_BUCKET_NAME: {S3_BUCKET_NAME}")
+            if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
+                logger.info("Running on AWS Lambda. Using execution role credentials.")
+                self.s3_client = boto3.client('s3', region_name=region)
+                logger.info("boto3 client initialized with Lambda execution role.")
+            else:
+                aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+                aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+                if aws_access_key and aws_secret_key:
+                    logger.info("Running locally. Using explicit AWS credentials from environment variables.")
+                    logger.info(f"AWS_ACCESS_KEY_ID: {'*' * (len(aws_access_key) - 4) + aws_access_key[-4:]}")
+                    self.s3_client = boto3.client(
+                        's3',
+                        aws_access_key_id=aws_access_key,
+                        aws_secret_access_key=aws_secret_key,
+                        region_name=region
+                    )
+                else:
+                    logger.info("Running locally. Using default AWS credentials (CLI config, IAM role, etc.).")
+                    self.s3_client = boto3.client('s3', region_name=region)
+            self.bucket_name = S3_BUCKET_NAME
+        except NoCredentialsError:
+            logger.error("AWS credentials not found. On Lambda, ensure the execution role has S3 permissions. Locally, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.")
+            raise Exception("AWS credentials not found. On Lambda, ensure the execution role has S3 permissions. Locally, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.")
+        except ClientError as e:
+            logger.error(f"ClientError initializing S3 client: {str(e)}")
+            if e.response['Error']['Code'] == 'InvalidAccessKeyId':
+                raise Exception("Invalid AWS Access Key ID. Please check your credentials or Lambda execution role.")
+            elif e.response['Error']['Code'] == 'SignatureDoesNotMatch':
+                raise Exception("Invalid AWS Secret Access Key. Please check your credentials or Lambda execution role.")
+            else:
+                raise Exception(f"Error initializing S3 client: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error initializing S3 client: {str(e)}")
+            raise
 
     def get_oldest_image(self):
         """

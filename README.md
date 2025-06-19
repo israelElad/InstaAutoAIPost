@@ -199,45 +199,52 @@ pip install -r requirements.txt
 
 **Authentication Methods:**
 
-**Option A: Using AWS CLI (Recommended)**
+**Using AWS CLI (Recommended)**
+## Key Terms Explained
+- **ECR (Elastic Container Registry)**: AWS service for storing, managing, and deploying Docker container images.
+- **Docker Image**: A packaged environment containing your application and its dependencies, used to run your code anywhere Docker is supported.
+- **S3 (Simple Storage Service)**: AWS service for storing files (like images) in the cloud.
+
 ```bash
 # Authenticate Docker to ECR
 aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
 
-# Build the Docker image
-docker build -t <your-repo-name> .
+# Build and push the image for linux/amd64 with provenance disabled
+# Replace <your-account-id>, <your-region>, and <your-repo-name> as needed
 
-# Tag the image for ECR
-docker tag <your-repo-name>:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest
-
-# Push to ECR
-docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest
+docker buildx build --platform linux/amd64 -t <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest --push --provenance=false .
 ```
 
-**Option B: Using AWS Tools for PowerShell**
-```powershell
-# Authenticate Docker to ECR
-(Get-ECRLoginCommand -Region <your-region>).Password | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
+**Why?**
+- AWS Lambda only supports single-architecture images (not multi-platform manifests or OCI indexes).
+- The `--provenance=false` flag ensures Docker pushes a single image manifest, not a manifest list.
 
-# Build the Docker image
-docker build -t <your-repo-name> .
+**⚠️ IMPORTANT: Always use the command above. Do NOT use `docker build` + `docker push` separately, as this creates multi-platform manifests that Lambda doesn't support.**
 
-# Tag the image for ECR
-docker tag <your-repo-name>:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest
-
-# Push to ECR
-docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest
-```
-
-**Note:** Replace `<your-account-id>`, `<your-region>`, and `<your-repo-name>` with your actual AWS account ID, AWS region, and ECR repository name.
+**Troubleshooting:**
+- If you see errors like `The image manifest, config or layer media type ... is not supported`, make sure you used the command above with `--provenance=false`.
+- If you see multiple images in ECR, always use the one built with this command.
+- **Common Error**: "The image manifest, config or layer media type for the source image ... is not supported" - This happens when using `docker build` + `docker push` instead of `docker buildx build ... --push --provenance=false`.
 
 ### 8. Create Lambda Function from Container Image
+## Key Terms Explained
+- **IAM (Identity and Access Management)**: AWS service for managing access and permissions for AWS resources.
+- **Lambda**: AWS serverless compute service that runs your code in response to events and automatically manages the compute resources.
+- **Execution Role**: An IAM role that grants the Lambda function permissions to access AWS services (like S3 or CloudWatch Logs).
+- **Architecture (x86_64/arm64)**: The instruction set for the compute environment. `x86_64` is standard Intel/AMD, `arm64` is for ARM-based processors (often cheaper, sometimes faster).
+
 - Go to AWS Lambda Console.
 - Click "Create function".
 - Choose "Container image".
 - Enter a function name (e.g., `InstagramAutoPoster`).
 - For Container image URI, use the ECR image URI you pushed.
-- Set environment variables from your `.env` file (in the Lambda console, add each variable under the Configuration > Environment variables section).
+- Set Environment Variables (in the Lambda console, Configuration > Environment variables section):
+  ```
+  INSTAGRAM_USERNAME=your_instagram_username
+  INSTAGRAM_PASSWORD=your_instagram_password
+  S3_BUCKET_NAME=your_s3_bucket_name
+  ```
+  **Important:** Do NOT add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as environment variables. These are reserved keys that Lambda automatically provides through the execution role.
 - Set the handler to: `src.handlers.lambda_handler.lambda_handler`
 - Set the timeout to at least 1 minute (increase if you expect large images or slow network).
 
@@ -269,7 +276,8 @@ docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-nam
 ### 12. Local Testing (Optional)
 You can run the handler locally for testing:
 ```bash
-python -m src.handlers.lambda_handler
+# Test the Lambda handler with proper event structure
+python -c "from src.handlers.lambda_handler import lambda_handler; import json; result = lambda_handler({}, None); print('Lambda handler test result:'); print(json.dumps(result, indent=2))"
 ```
 
 ## Local End-to-End Testing
@@ -288,9 +296,10 @@ You can test the full workflow locally before deploying to AWS Lambda. This is u
    ```
 2. **Upload at least one valid image to your S3 bucket** (see validator requirements).
 
-3. **Run the Lambda handler locally:**
+3. **Test the Lambda handler locally:**
    ```bash
-   python -m src.handlers.lambda_handler
+   # Test with proper event structure
+   python -c "from src.handlers.lambda_handler import lambda_handler; import json; result = lambda_handler({}, None); print('Lambda handler test result:'); print(json.dumps(result, indent=2))"
    ```
    - This will attempt to fetch the oldest image from your S3 bucket, validate it, post it to Instagram, and delete it from S3.
    - Output and errors will be printed to the console.
