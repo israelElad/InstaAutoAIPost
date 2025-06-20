@@ -106,7 +106,6 @@ def lambda_handler(event, context):
                         'message': f'Failed to post to Instagram: {str(e)}'
                     })
                 }
-            
             # Delete from S3 (only if posted successfully)
             try:
                 s3_service.delete_image(image_key)
@@ -131,7 +130,7 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'message': f'Unexpected error: {str(e)}'
             })
-        }
+        } 
 
 if __name__ == "__main__":
     print("[Local Test] Running lambda_handler with dummy event...")

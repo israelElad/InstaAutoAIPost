@@ -40,7 +40,7 @@ def validate_config():
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
-        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}") 
     
     # Check if running on Lambda
     if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
