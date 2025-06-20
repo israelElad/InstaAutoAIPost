@@ -236,13 +236,13 @@ pip install -r requirements.txt
 ### 6. Create a `.env` File
 - In your project root, create a file named `.env`.
 - Add the following, replacing with your actual values:
-  ```
-  INSTAGRAM_USERNAME=your_instagram_username
-  INSTAGRAM_PASSWORD=your_instagram_password
+```
+INSTAGRAM_USERNAME=your_instagram_username
+INSTAGRAM_PASSWORD=your_instagram_password
   AWS_ACCESS_KEY_ID=your_access_key_id
   AWS_SECRET_ACCESS_KEY=your_secret_access_key
-  S3_BUCKET_NAME=your_s3_bucket_name
-  ```
+S3_BUCKET_NAME=your_s3_bucket_name
+```
 
 ### 7. Build and Push Docker Image to AWS ECR
 
@@ -259,9 +259,9 @@ pip install -r requirements.txt
 - **Docker Image**: A packaged environment containing your application and its dependencies, used to run your code anywhere Docker is supported.
 - **S3 (Simple Storage Service)**: AWS service for storing files (like images) in the cloud.
 
-```bash
+  ```bash
 # Authenticate Docker to ECR
-aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
+  aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
 
 # Build and push the image for linux/amd64 with provenance disabled
 # Replace <your-account-id>, <your-region>, and <your-repo-name> as needed
@@ -386,3 +386,13 @@ You can test the full workflow locally before deploying to AWS Lambda. This is u
   **A:** Yes, but be aware of Instagram's automation policies.
 - **Q:** Is this free?
   **A:** All AWS services used have a free tier. Stay within limits to avoid charges.
+
+## Instagram API Best Practices & Anti-Ban Measures
+
+To reduce the risk of Instagram bans or rate limits, this project now follows best practices from the [instagrapi usage guide](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html):
+
+- **Consistent IP Address:** Instagram is less likely to flag activity if requests come from a consistent IP. Since dedicated proxies are not free, we moved all AWS resources to the Israel region (`il-central-1`) to ensure requests originate from the same country as your account. This helps reduce suspicious login attempts and ban risk.
+- **Delays Between Requests:** The code is designed to mimic real user behavior by adding random delays between requests. This helps avoid triggering Instagram's anti-bot systems.
+- **Session Reuse:** Instead of logging in with your username and password on every run, the project uses session storage and reuse. This mimics how a real device stays logged in, further reducing suspicious activity.
+
+For more details and advanced anti-ban strategies, see the [instagrapi best practices guide](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html).
