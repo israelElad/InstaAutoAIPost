@@ -306,7 +306,9 @@ docker buildx build --platform linux/amd64 -t <your-account-id>.dkr.ecr.<your-re
 - Go to AWS EventBridge Console.
 - Create a new rule.
 - Choose "Schedule" and set your desired cron or rate expression (e.g., `cron(0 12 * * ? *)` for every day at noon UTC).
+  Note: Each rule triggers the Lambda function to post at the optimal time for Israeli audiences.
 - Add the Lambda function as the target.
+- **Flexible Time Window:** added a flexible time window to these rules for more human-like behavior.
 
 ### 10. Test the Setup
 - Upload a test image to your S3 bucket (if not already done).
