@@ -6,13 +6,15 @@ import logging
 import threading
 from datetime import datetime
 from pathlib import Path
+import argparse
+from src.services.instagram_service import InstagramService
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.handlers.lambda_handler import lambda_handler
 from src.config import config
-from src.web_server import start_web_server
+# from src.web_server import start_web_server
 import json
 
 # Configure logging
@@ -57,16 +59,8 @@ def run_main_application():
 
 def main():
     """Main application entry point."""
-    # Create logs directory if it doesn't exist
     os.makedirs("logs", exist_ok=True)
-    
-    # Start web server in background
-    logger.info("Starting web server...")
-    web_server_thread = start_web_server()
-    
-    # Wait a moment for web server to start
-    time.sleep(2)
-    
+
     # Run main application once
     try:
         result = run_main_application()
@@ -75,16 +69,16 @@ def main():
         logger.error(f"Main application failed: {e}")
     
     # Keep the application running
-    logger.info("Keeping application running...")
-    try:
-        while True:
-            time.sleep(60)  # Sleep for 1 minute
-            logger.debug("Application heartbeat")
-    except KeyboardInterrupt:
-        logger.info("Application stopped by user")
-    except Exception as e:
-        logger.error(f"Application error: {e}")
-        raise
+    # logger.info("Keeping application running...")
+    # try:
+    #     while True:
+    #         time.sleep(60)  # Sleep for 1 minute
+    #         logger.debug("Application heartbeat")
+    # except KeyboardInterrupt:
+    #     logger.info("Application stopped by user")
+    # except Exception as e:
+    #     logger.error(f"Application error: {e}")
+    #     raise
 
 if __name__ == "__main__":
     main() 

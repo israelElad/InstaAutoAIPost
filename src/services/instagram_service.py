@@ -240,23 +240,8 @@ class InstagramService:
             bool: True if posting was successful
         """
         # Ensure caption is a string
-        final_caption = caption if caption is not None else ""
+        final_caption = str(caption) if caption is not None else ""
         return self._post_image_internal(image_data, final_caption, is_private=False)
-
-    def post_image_private(self, image_data: bytes, caption: str = None) -> bool:
-        """
-        Post an image to Instagram (private).
-        
-        Args:
-            image_data (bytes): The image data to post
-            caption (str): Optional caption for the post
-            
-        Returns:
-            bool: True if posting was successful
-        """
-        # Ensure caption is a string
-        final_caption = caption if caption is not None else ""
-        return self._post_image_internal(image_data, final_caption, is_private=True)
 
     def _post_image_internal(self, image_data: bytes, caption: str = "", is_private: bool = False) -> bool:
         """

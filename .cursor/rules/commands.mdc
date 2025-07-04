@@ -1,0 +1,34 @@
+---
+description: This rule defines the process for documenting important terminal commands, including how to handle sensitive information by redacting it in the main documentation file and storing unredacted versions in a separate, git-ignored file.
+globs: []
+alwaysApply: true
+---
+# Important Commands Documentation Rule
+
+This rule outlines the standard procedure for documenting important terminal commands relevant to the project's development and deployment. It emphasizes the secure handling of sensitive information.
+
+## 1. General Commands
+
+-   General commands that do not contain any sensitive information should be directly added to the `docs/commands.md` file under an appropriate section (e.g., "General Commands").
+
+## 2. Commands with Sensitive Information
+
+-   For commands that include sensitive information (e.g., API keys, passwords, specific private resource names, secret IDs):
+    1.  **Redaction in `docs/commands.md`**: The command should be added to `docs/commands.md`, but all sensitive parts must be redacted using placeholders like `[REDACTED_INFO]`, `[YOUR_S3_BUCKET_NAME]`, `[YOUR_SECRET_ID]`, etc.
+    2.  **Unredacted Storage in `docs/.sensitive_commands.mdc`**: The full, unredacted, and **literally unaltered** version of the command, **copied directly as is from historical logs (`all.md` or similar sources)**, should be stored in a separate file, specifically `docs/.sensitive_commands.mdc`. This file should also include subsections for context (e.g., "EC2 instance deployment" under "SSH Commands") to clearly categorize and describe the purpose of the commands.
+    3.  **Git Exclusion**: The `docs/.sensitive_commands.mdc` file **must always be listed in `.gitignore`** to ensure it is never committed to version control.
+
+## 3. Purpose
+
+-   This dual-file approach ensures that important commands are easily accessible for all team members (via `docs/commands.md`), while highly sensitive data remains secure and out of version control (in `docs/.sensitive_commands.mdc`).
+
+## 4. Maintenance and Usage
+
+-   This rule, along with the `docs/commands.md` and `docs/.sensitive_commands.mdc` files, should be regularly updated as new commands become relevant or existing ones change.
+-   When executing commands, always refer to `docs/.sensitive_commands.mdc` first to avoid re-composing already documented commands. If a command listed in `docs/.sensitive_commands.mdc` becomes irrelevant (e.g., due to changes in asset names, IPs, or parameters), it **must be updated** to reflect the current correct command.
+
+## 5. Best Practices for Command Documentation
+
+-   **Completeness**: Ensure all critical and frequently used project-related terminal commands (development, deployment, debugging, setup) are thoroughly documented in `docs/commands.md`.
+-   **Clarity**: Provide clear descriptions and examples for each command.
+-   **Accuracy**: Keep command syntax and usage up-to-date with the current project environment and tools.

@@ -170,7 +170,8 @@ logs/
 # Temporary files
 *.tmp
 *.temp 
-ai_chats/cursor_automate_instagram_uploads_with.md
+ai_chats/cursor_automate_instagram_uploads_to_s3.md
 ai_chats/cursor_update_requirements_file_for_lat.md
 insta-auto-ai-post-key.pem
 .cursorindexingignore
+docs/.sensitive_commands.mdc
