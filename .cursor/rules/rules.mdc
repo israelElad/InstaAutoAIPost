@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- if need to run something in python - do it from .venv folder
+- ALWAYS begin your response by telling me what AI model you are using. Just say the name of the model like (claude-3.5-sonnet or gemini-2.5-pro)

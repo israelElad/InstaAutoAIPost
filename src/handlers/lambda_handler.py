@@ -6,7 +6,7 @@ from ..services.s3_service import S3Service
 from ..services.instagram_service import InstagramService
 from ..utils.image_validator import validate_image, ImageValidationError
 from ..utils.image_processor import ImageProcessor
-from ..config import validate_config
+from ..config import config
 
 # Configure logging
 logger = logging.getLogger()
@@ -14,18 +14,19 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     """
-    AWS Lambda handler function.
+    Main handler function for Instagram auto-posting.
+    Works for both AWS Lambda and EC2 environments.
     
     Args:
-        event (dict): Lambda event data
-        context (object): Lambda context
+        event (dict): Event data
+        context (object): Context object
         
     Returns:
         dict: Response with status and message
     """
     try:
         # Validate configuration
-        validate_config()
+        config.validate()
         
         # Initialize services
         s3_service = S3Service()
@@ -43,8 +44,9 @@ def lambda_handler(event, context):
                 })
             }
         
-        # Save original image locally for testing (if running locally)
-        if os.getenv('AWS_LAMBDA_FUNCTION_NAME') is None:
+        # Save original image locally for debugging (if not on Lambda)
+        is_lambda = os.getenv('AWS_LAMBDA_FUNCTION_NAME') is not None
+        if not is_lambda:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             os.makedirs("test_output", exist_ok=True)
             original_filename = f"test_output/original_{timestamp}_{os.path.basename(image_key)}"
@@ -66,8 +68,8 @@ def lambda_handler(event, context):
                 })
             }
         
-        # Save processed image locally for testing (if running locally)
-        if os.getenv('AWS_LAMBDA_FUNCTION_NAME') is None:
+        # Save processed image locally for debugging (if not on Lambda)
+        if not is_lambda:
             processed_filename = f"test_output/processed_{timestamp}_{os.path.basename(image_key)}"
             with open(processed_filename, 'wb') as f:
                 f.write(processed_image_data)
@@ -93,19 +95,11 @@ def lambda_handler(event, context):
                 })
             }
         
-        # Post to Instagram (only if not in test mode)
-        if os.getenv('AWS_LAMBDA_FUNCTION_NAME') is not None:
-            try:
-                instagram_service.post_image(processed_image_data)
-                logger.info("Successfully posted image to Instagram")
-            except Exception as e:
-                logger.error(f"Failed to post to Instagram: {str(e)}")
-                return {
-                    'statusCode': 500,
-                    'body': json.dumps({
-                        'message': f'Failed to post to Instagram: {str(e)}'
-                    })
-                }
+        # Post to Instagram (always attempt, regardless of environment)
+        try:
+            instagram_service.post_image(processed_image_data)
+            logger.info("Successfully posted image to Instagram")
+            
             # Delete from S3 (only if posted successfully)
             try:
                 s3_service.delete_image(image_key)
@@ -113,13 +107,20 @@ def lambda_handler(event, context):
             except Exception as e:
                 logger.error(f"Failed to delete image from S3: {str(e)}")
                 # Don't return error here as the post was successful
-        else:
-            logger.info("Running in test mode - skipping Instagram post and S3 deletion")
+                
+        except Exception as e:
+            logger.error(f"Failed to post to Instagram: {str(e)}")
+            return {
+                'statusCode': 500,
+                'body': json.dumps({
+                    'message': f'Failed to post to Instagram: {str(e)}'
+                })
+            }
         
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Successfully processed image' + (' and posted to Instagram' if os.getenv('AWS_LAMBDA_FUNCTION_NAME') is not None else ' (test mode)')
+                'message': 'Successfully processed image and posted to Instagram'
             })
         }
         

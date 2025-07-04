@@ -1,6 +1,6 @@
-# Instagram Auto Poster
+# Instagram Auto Poster (EC2 Edition)
 
-An automated solution for posting images to Instagram from an S3 bucket. This project uses AWS Lambda and EventBridge to schedule posts at specific times throughout the day.
+An automated solution for posting images to Instagram from an S3 bucket. This project now runs securely and reliably on AWS EC2 with Docker Compose and AWS Secrets Manager.
 
 ## Features
 
@@ -10,8 +10,8 @@ An automated solution for posting images to Instagram from an S3 bucket. This pr
 - **Automatic image resizing to meet Instagram's 1440px resolution limit**
 - **Maximum quality preservation (100%) within Instagram's 8MB file size limit**
 - Handles failures and exceptions gracefully
-- Uses AWS Lambda and EventBridge for scheduling
-- Implements secure credential management
+- Uses AWS EC2 and Docker Compose for persistent, static-IP deployment
+- Implements secure credential management with AWS Secrets Manager
 - Includes comprehensive unit tests
 - Uses free tier services only
 
@@ -24,15 +24,15 @@ An automated solution for posting images to Instagram from an S3 bucket. This pr
 - **File Size Management**: Intelligent compression when needed to stay under 8MB limit
 
 ### 🚀 **Performance Optimizations**
-- **Increased Lambda Resources**: Upgraded to 512MB memory and 5-minute timeout for better image processing performance
-- **Efficient Docker Builds**: Optimized Docker image builds with proper Lambda compatibility
+- **Increased EC2 Resources**: You can now scale your EC2 instance for better image processing performance
+- **Efficient Docker Builds**: Optimized Docker image builds for EC2
 - **Robust Error Handling**: Enhanced error handling for image processing and Instagram posting
 
 ### ✅ **Production Ready**
-- **Successfully Deployed**: Lambda function is now live and processing images from S3 to Instagram
+- **Successfully Deployed**: The service is now live and processing images from S3 to Instagram on EC2
 - **Fixed Instagram Integration**: Resolved file path issues for reliable Instagram posting
 - **Comprehensive Testing**: Thorough local and AWS testing with real images
-- **Security Best Practices**: All credentials properly managed via environment variables
+- **Security Best Practices**: All credentials properly managed via AWS Secrets Manager
 
 ### 📊 **Example Results**
 - **Original Image**: 5312x2988 pixels, 5.47MB
@@ -42,58 +42,50 @@ An automated solution for posting images to Instagram from an S3 bucket. This pr
 ## 🎉 **Deployment Status - SUCCESS!**
 
 ### **✅ Production Deployment Complete**
-The Instagram Auto Poster is now **successfully deployed and running** on AWS Lambda! 
+The Instagram Auto Poster is now **successfully deployed and running** on AWS EC2! 
 
 **Latest Test Results:**
-- **Lambda Function**: `instaAutoAIPostFunc` ✅ Active
-- **ECR Repository**: `insta-auto-ai-post-repo` ✅ Updated
+- **EC2 Instance**: Running and healthy
+- **Docker Compose**: Manages the app container
 - **Last Execution**: ✅ Successfully processed and posted image to Instagram
 - **Response**: `{"statusCode": 200, "body": "{\"message\": \"Successfully processed image and posted to Instagram\"}"}`
 
 ### **🔧 Final Optimizations Applied**
-- **Memory**: Increased to 512MB for better image processing performance
-- **Timeout**: Extended to 5 minutes to handle large images
+- **EC2 Instance**: You can scale resources as needed
 - **Image Quality**: Maximum quality (100%) within Instagram's 8MB limit
 - **Error Handling**: Robust temporary file management for Instagram posting
-- **Security**: All credentials properly managed via environment variables
+- **Security**: All credentials properly managed via AWS Secrets Manager
 
 ### **🚀 Ready for Production Use**
 The system is now fully operational and can be:
-- **Manually triggered** via AWS Lambda console
-- **Scheduled** via EventBridge for automatic posting
-- **Monitored** via CloudWatch logs
+- **Manually triggered** via Docker Compose
+- **Scheduled** via your own cron or automation (see EC2 docs)
+- **Monitored** via logs and health endpoints
 - **Scaled** as needed for higher posting frequency
 
-**Next Steps**: Set up EventBridge scheduling for automated daily posts!
+**Next Steps**: Set up your own scheduling (e.g., cron on EC2) for automated daily posts!
 
 ## Architecture
 
 The solution consists of the following components:
 
 1. **S3 Bucket**: Stores images to be posted
-2. **AWS Lambda**: Runs the posting script on schedule
-3. **EventBridge**: Schedules the Lambda function
-4. **Docker Container**: Packages the Lambda function
-5. **Instagram API**: Handles posting to Instagram
+2. **AWS EC2**: Runs the posting script on schedule (via Docker Compose)
+3. **Docker Container**: Packages and runs the application
+4. **Instagram API**: Handles posting to Instagram
+5. **AWS Secrets Manager**: Securely stores credentials
 
 ## Setup
 
 1. Create an S3 bucket for storing images
-2. Set up AWS Lambda with the provided Docker container
-3. Configure EventBridge rules for scheduling
-4. Set up environment variables for credentials
+2. Set up AWS EC2 with Docker Compose and the provided Dockerfile
+3. Set up AWS Secrets Manager for credentials
+4. (Optional) Set up your own scheduling (e.g., cron) on EC2
 
-### Environment Variables
+### Environment Variables and Secrets
 
-Create a `.env` file with the following variables:
-
-```
-INSTAGRAM_USERNAME=your_username
-INSTAGRAM_PASSWORD=your_password
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-S3_BUCKET_NAME=your_bucket_name
-```
+- **Production:** All credentials are loaded from AWS Secrets Manager (not from environment variables or .env files)
+- **Local Testing:** You can still use a `.env` file for local runs (see below)
 
 ## Project Structure
 
@@ -107,15 +99,14 @@ S3_BUCKET_NAME=your_bucket_name
 │   │   └── s3_service.py
 │   ├── utils/
 │   │   ├── image_validator.py
-│   │   └── error_handler.py
+│   │   └── image_processor.py
 │   └── config.py
-├── tests/
-│   ├── test_instagram_service.py
-│   ├── test_s3_service.py
-│   └── test_image_validator.py
-├── Dockerfile
+├── main.py
 ├── requirements.txt
-└── README.md
+├── docker-compose.yml
+├── Dockerfile.ec2
+├── logs/
+└── README_EC2.md
 ```
 
 ## Development
@@ -130,14 +121,14 @@ S3_BUCKET_NAME=your_bucket_name
    pytest
    ```
 
-3. Build Docker container:
+3. Build and run Docker container (for EC2):
    ```bash
-   docker build -t instagram-auto-poster .
+   docker-compose up -d --build
    ```
 
 ## Security Considerations
 
-- All credentials are stored as environment variables
+- All credentials are stored in AWS Secrets Manager (never in code or .env in production)
 - No hardcoded secrets in the code
 - Secure handling of Instagram credentials
 - Proper error handling and logging
@@ -188,10 +179,12 @@ Before starting the setup, ensure you have the following tools installed:
 Follow these steps to set up and run the Instagram Auto Poster end-to-end:
 
 ### 1. Prerequisites
-- **AWS Account** (for Lambda, S3, ECR, EventBridge)
+- **AWS Account** (for EC2, S3, Secrets Manager)
 - **Instagram Account** (username & password)
-- **Docker** installed locally
+- **Docker** installed on your EC2 instance
 - **Python 3.9+** (for local testing)
+- **IAM Role** with `SecretsManagerReadWrite` attached to your EC2 instance
+- **AWS Region**: `il-central-1` (Israel)
 
 ### 2. Clone the Repository
 ```bash
@@ -207,8 +200,8 @@ pip install -r requirements.txt
 ### 4. Create and Configure AWS S3 Bucket
 - Log in to your AWS Console and navigate to the S3 service.
 - Click "Create bucket".
-- Enter a unique bucket name (e.g., `my-instagram-images`).
-- Choose your preferred AWS region.
+- Enter a unique bucket name (e.g., `my-instagram-images-il`).
+- Choose your preferred AWS region (`il-central-1` recommended for static IP).
 - Leave other settings as default, or adjust as needed.
 - Click "Create bucket".
 - Click on your new bucket, then "Upload" to add a few images that meet Instagram's requirements (see validator section below).
@@ -216,131 +209,59 @@ pip install -r requirements.txt
 
 **Tip:** Images must meet Instagram's requirements (see validator in the code or below for details on size, aspect ratio, and file type).
 
-### 5. Set Up AWS IAM User for Programmatic Access
-- Log in to your AWS Console and navigate to the IAM service.
-- Click "Users" in the left sidebar, then "Create user".
-- Enter a username (e.g., `instagram-auto-poster`).
-- **Select "Command Line Interface (CLI)"** for programmatic access (this generates the Access Key ID and Secret Access Key).
-- Click "Next: Permissions".
-- Choose "Attach policies directly".
-- Search for and select "AmazonS3FullAccess" (or create a custom policy for more restricted access).
-- Click "Next: Tags" (optional), then "Next: Review".
-- Click "Create user".
-- **Important:** Copy the Access Key ID and Secret Access Key immediately. You won't be able to see the secret again.
-- Add these to your `.env` file:
-  ```
-  AWS_ACCESS_KEY_ID=your_access_key_id
-  AWS_SECRET_ACCESS_KEY=your_secret_access_key
-  ```
+### 5. Set Up AWS IAM Role for EC2
+- Go to the IAM service in AWS Console.
+- Click "Roles" > "Create role".
+- Choose "EC2" as the trusted entity.
+- Attach the `SecretsManagerReadWrite` policy (or a custom policy with at least `secretsmanager:GetSecretValue` and S3 access).
+- Name the role (e.g., `instaAutoAIPostEC2Role`).
+- Attach this role to your EC2 instance.
 
-### 6. Create a `.env` File
-- In your project root, create a file named `.env`.
-- Add the following, replacing with your actual values:
-```
-INSTAGRAM_USERNAME=your_instagram_username
-INSTAGRAM_PASSWORD=your_instagram_password
-  AWS_ACCESS_KEY_ID=your_access_key_id
-  AWS_SECRET_ACCESS_KEY=your_secret_access_key
-S3_BUCKET_NAME=your_s3_bucket_name
-```
+### 6. Store Credentials in AWS Secrets Manager
+- Go to AWS Secrets Manager in the AWS Console.
+- Click "Store a new secret".
+- Choose "Other type of secret".
+- Add the following key-value pairs:
+  - `INSTAGRAM_USERNAME`
+  - `INSTAGRAM_PASSWORD`
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+  - `S3_BUCKET_NAME`
+- Name the secret: `insta-auto-ai-post-secrets`
+- Set the region to `il-central-1`
+- Save the secret.
 
-### 7. Build and Push Docker Image to AWS ECR
-
-**Prerequisites Check:**
-- Ensure Docker Desktop is running
-- Verify AWS CLI or AWS Tools for PowerShell are installed
-- Confirm you have ECR permissions in your AWS account
-
-**Authentication Methods:**
-
-**Using AWS CLI (Recommended)**
-## Key Terms Explained
-- **ECR (Elastic Container Registry)**: AWS service for storing, managing, and deploying Docker container images.
-- **Docker Image**: A packaged environment containing your application and its dependencies, used to run your code anywhere Docker is supported.
-- **S3 (Simple Storage Service)**: AWS service for storing files (like images) in the cloud.
-
+### 7. Build and Deploy the App to EC2
+- Ensure Docker and Docker Compose are installed on your EC2 instance.
+- In your project directory, run:
   ```bash
-# Authenticate Docker to ECR
-  aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
-
-# Build and push the image for linux/amd64 with provenance disabled
-# Replace <your-account-id>, <your-region>, and <your-repo-name> as needed
-
-docker buildx build --platform linux/amd64 -t <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repo-name>:latest --push --provenance=false .
-```
-
-**Why?**
-- AWS Lambda only supports single-architecture images (not multi-platform manifests or OCI indexes).
-- The `--provenance=false` flag ensures Docker pushes a single image manifest, not a manifest list.
-
-**⚠️ IMPORTANT: Always use the command above. Do NOT use `docker build` + `docker push` separately, as this creates multi-platform manifests that Lambda doesn't support.**
-
-**Troubleshooting:**
-- If you see errors like `The image manifest, config or layer media type ... is not supported`, make sure you used the command above with `--provenance=false`.
-- If you see multiple images in ECR, always use the one built with this command.
-- **Common Error**: "The image manifest, config or layer media type for the source image ... is not supported" - This happens when using `docker build` + `docker push` instead of `docker buildx build ... --push --provenance=false`.
-
-### 8. Create Lambda Function from Container Image
-## Key Terms Explained
-- **IAM (Identity and Access Management)**: AWS service for managing access and permissions for AWS resources.
-- **Lambda**: AWS serverless compute service that runs your code in response to events and automatically manages the compute resources.
-- **Execution Role**: An IAM role that grants the Lambda function permissions to access AWS services (like S3 or CloudWatch Logs).
-- **Architecture (x86_64/arm64)**: The instruction set for the compute environment. `x86_64` is standard Intel/AMD, `arm64` is for ARM-based processors (often cheaper, sometimes faster).
-
-- Go to AWS Lambda Console.
-- Click "Create function".
-- Choose "Container image".
-- Enter a function name (e.g., `InstagramAutoPoster`).
-- For Container image URI, use the ECR image URI you pushed.
-- Set Environment Variables (in the Lambda console, Configuration > Environment variables section):
+  docker-compose up -d --build
   ```
-  INSTAGRAM_USERNAME=your_instagram_username
-  INSTAGRAM_PASSWORD=your_instagram_password
-  S3_BUCKET_NAME=your_s3_bucket_name
+- The app will automatically:
+  - Load credentials from AWS Secrets Manager
+  - Start the FastAPI web server on port 8000
+  - Attempt to post the oldest image from S3 to Instagram
+
+### 8. Health and Debug Endpoints
+- Check service health:
+  - `http://<your-ec2-ip>:8000/health`
+  - `http://<your-ec2-ip>:8000/status`
+  - `http://<your-ec2-ip>:8000/debug/session`
+  - `http://<your-ec2-ip>:8000/debug/ip`
+  - `http://<your-ec2-ip>:8000/debug/device`
+  - `http://<your-ec2-ip>:8000/debug/rate_limit`
+
+### 9. Updating the Service
+- To deploy new code, update your repo and run:
+  ```bash
+  docker-compose up -d --build
   ```
-  **Important:** Do NOT add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as environment variables. These are reserved keys that Lambda automatically provides through the execution role.
-- Set the handler to: `src.handlers.lambda_handler.lambda_handler`
-- Set the timeout to at least 1 minute (increase if you expect large images or slow network).
+- Logs are available in the `logs/` directory and via `docker-compose logs app`
 
-### 9. Set Up EventBridge (CloudWatch Events) for Scheduling
-- Go to AWS EventBridge Console.
-- Create a new rule.
-- Choose "Schedule" and set your desired cron or rate expression (e.g., `cron(0 12 * * ? *)` for every day at noon UTC).
-  Note: Each rule triggers the Lambda function to post at the optimal time for Israeli audiences.
-- Add the Lambda function as the target.
-- **Flexible Time Window:** added a flexible time window to these rules for more human-like behavior.
+### 10. Local End-to-End Testing (Optional)
+You can test the full workflow locally before deploying to AWS EC2. This is useful for debugging and verifying your setup.
 
-### 10. Test the Setup
-- Upload a test image to your S3 bucket (if not already done).
-- Trigger the Lambda manually from the AWS Lambda console (Actions > Invoke) or wait for the scheduled EventBridge rule.
-- Check Instagram for the new post.
-- Check S3 to confirm the image was deleted.
-
-**Troubleshooting:**
-- Check Lambda logs in AWS CloudWatch for errors.
-- Ensure your IAM user has the correct permissions.
-- Make sure your Instagram credentials are correct and not locked by Instagram.
-- Ensure your images meet Instagram's requirements (see validator section below).
-- If you encounter issues, review the error messages and consult AWS and Instagram documentation as needed.
-
-### 11. Troubleshooting
-- Check Lambda logs in AWS CloudWatch for errors
-- Ensure your IAM user has the correct permissions
-- Make sure your Instagram credentials are correct and not locked by Instagram
-- Ensure your images meet Instagram's requirements (see validator)
-
-### 12. Local Testing (Optional)
-You can run the handler locally for testing:
-```bash
-# Test the Lambda handler with proper event structure
-python -c "from src.handlers.lambda_handler import lambda_handler; import json; result = lambda_handler({}, None); print('Lambda handler test result:'); print(json.dumps(result, indent=2))"
-```
-
-## Local End-to-End Testing
-
-You can test the full workflow locally before deploying to AWS Lambda. This is useful for debugging and verifying your setup.
-
-### Steps for Local E2E Testing
+#### Steps for Local E2E Testing
 
 1. **Ensure your `.env` file is present in the project root** with all required variables:
    ```
@@ -352,9 +273,8 @@ You can test the full workflow locally before deploying to AWS Lambda. This is u
    ```
 2. **Upload at least one valid image to your S3 bucket** (see validator requirements).
 
-3. **Test the Lambda handler locally:**
+3. **Test the handler locally:**
    ```bash
-   # Test with proper event structure
    python -c "from src.handlers.lambda_handler import lambda_handler; import json; result = lambda_handler({}, None); print('Lambda handler test result:'); print(json.dumps(result, indent=2))"
    ```
    - This will attempt to fetch the oldest image from your S3 bucket, validate it, post it to Instagram, and delete it from S3.
@@ -362,7 +282,7 @@ You can test the full workflow locally before deploying to AWS Lambda. This is u
 
 4. **Check Instagram and S3** to confirm the post and deletion.
 
-### Troubleshooting Local Runs
+#### Troubleshooting Local Runs
 - If you see errors about missing environment variables, double-check your `.env` file and variable names.
 - If you get authentication errors, verify your AWS and Instagram credentials.
 - If the script cannot find images, ensure your S3 bucket name is correct and the bucket contains images.
@@ -372,15 +292,14 @@ You can test the full workflow locally before deploying to AWS Lambda. This is u
 ---
 
 ## Manual Steps Required
-- AWS account setup (S3, Lambda, ECR, EventBridge)
+- AWS account setup (S3, EC2, Secrets Manager)
 - Instagram account setup
-- IAM user creation and permissions
-- Docker installation and ECR authentication
-- Environment variable configuration
+- IAM user/role creation and permissions
+- Docker installation and authentication
+- Secrets Manager configuration
 - Manual upload of images to S3
 
 ---
-
 ## FAQ
 - **Q:** Why do I need to use my own Instagram credentials?
   **A:** Instagram does not provide a public API for posting; automation requires your credentials. Use a dedicated account for safety.
@@ -398,3 +317,29 @@ To reduce the risk of Instagram bans or rate limits, this project now follows be
 - **Session Reuse:** Instead of logging in with your username and password on every run, the project uses session storage and reuse. This mimics how a real device stays logged in, further reducing suspicious activity.
 
 For more details and advanced anti-ban strategies, see the [instagrapi best practices guide](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html).
+
+---
+
+## Transition from Lambda to EC2: Why and How
+
+This project was originally built for AWS Lambda, but was migrated to EC2 for the following reasons:
+- **Static IP**: Instagram is less likely to flag activity from a consistent IP. Lambda uses dynamic IPs, which can trigger bans.
+- **Persistent Sessions**: EC2 allows for persistent session storage, reducing login frequency and ban risk. Lambda is stateless and cannot persist sessions easily.
+- **Secrets Management**: AWS Secrets Manager and IAM roles provide secure, automated credential management on EC2.
+- **Reliability**: EC2 with Docker Compose is more reliable for long-running, stateful services.
+
+### Previous Lambda-Based Configuration (for Reference)
+- **ECR (Elastic Container Registry):** Docker images were built locally and pushed to an ECR repository (`insta-auto-ai-post-repo`).
+- **Lambda Container Image:** AWS Lambda pulled the image from ECR and ran it as a serverless function.
+- **EventBridge Scheduling:** AWS EventBridge was used to trigger the Lambda function on a schedule (e.g., daily posting).
+- **Environment Variables:** Credentials and configuration were managed via Lambda environment variables (except for AWS keys, which were provided by the Lambda execution role).
+
+### Current EC2 + Docker Compose Configuration
+- **No ECR required:** Docker images are built and run directly on the EC2 instance using Docker Compose. ECR is not referenced or needed for this workflow.
+- **Persistent Service:** The app runs as a long-lived service with a static IP and persistent session storage.
+- **Secrets Management:** All credentials are loaded from AWS Secrets Manager using the EC2 instance's IAM role.
+- **Scheduling:** If needed, posting can be scheduled using cron or other automation on the EC2 instance.
+
+> **Migration Tip:** The transition process involved many experimental scripts and chat-driven iterations. Most of these were not pushed to the repo, as Cursor and AI-driven workflows tend to generate a lot of temporary files and scripts. **If you need to transition or refactor, it is strongly recommended to start fresh rather than trying to clean up or refactor everything.** In the current state of Cursor and AI models, starting from a clean slate is faster and less error-prone.
+
+--- 
