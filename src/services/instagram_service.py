@@ -3,7 +3,7 @@ from instagrapi.exceptions import LoginRequired, ClientError, ClientConnectionEr
 from ..config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
 import io
 from PIL import Image
-from PIL.ExifTags import TAGS
+from PIL.ExifTags import TAGS, GPSTAGS
 import requests
 import json
 import tempfile
@@ -12,6 +12,8 @@ from pathlib import Path
 import logging
 import time
 import random
+from .ai_caption_service import GeminiCaptionService
+from typing import Optional
 
 class InstagramService:
     SESSION_FILE = os.environ.get("INSTAGRAM_SESSION_FILE", "session.json")
@@ -27,6 +29,7 @@ class InstagramService:
         """Initialize Instagram client and login with best practices."""
         self.client = Client()
         self.client.delay_range = self.DELAY_RANGE
+        self.client.user_agent = self.USER_AGENT  # Set the user agent
         if self.PROXY:
             self.client.set_proxy(self.PROXY)
         self._login()
@@ -114,6 +117,7 @@ class InstagramService:
         Returns:
             dict: Location data with lat, lng, and name if available
         """
+        logger = logging.getLogger(__name__)
         try:
             # Create temporary file for PIL
             with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
@@ -127,7 +131,10 @@ class InstagramService:
                     exif_data = img.getexif() if hasattr(img, 'getexif') else None
                 
                 if not exif_data:
+                    logger.info("⚠️ No EXIF data found in image")
                     return None
+                
+                logger.info(f"✅ EXIF data found with {len(exif_data)} tags")
                 
                 # Extract GPS data
                 gps_data = {}
@@ -137,18 +144,25 @@ class InstagramService:
                     
                     if isinstance(tag, str) and tag.startswith('GPS'):
                         gps_data[tag] = data
+                        logger.info(f"📍 Found GPS tag: {tag} = {data}")
                 
                 if not gps_data:
+                    logger.info("⚠️ No GPS data found in EXIF")
                     return None
+                
+                logger.info(f"✅ Found {len(gps_data)} GPS tags")
                 
                 # Convert GPS coordinates to decimal degrees
                 location = self._convert_gps_to_decimal(gps_data)
                 if location:
+                    logger.info(f"📍 Converted GPS coordinates: {location['lat']:.6f}, {location['lng']:.6f}")
                     return {
                         'lat': location['lat'],
                         'lng': location['lng'],
                         'name': f"GPS Location ({location['lat']:.4f}, {location['lng']:.4f})"
                     }
+                else:
+                    logger.warning("⚠️ Failed to convert GPS coordinates to decimal degrees")
                 
                 return None
                 
@@ -158,7 +172,6 @@ class InstagramService:
                     os.unlink(temp_file_path)
                     
         except Exception as e:
-            logger = logging.getLogger(__name__)
             logger.warning(f"⚠️ Failed to extract location from EXIF: {e}")
             return None
 
@@ -228,7 +241,40 @@ class InstagramService:
         
         return caption
 
-    def post_image(self, image_data: bytes, caption: str = None) -> bool:
+    def get_instagram_location_name_and_obj(self, lat, lng):
+        logger = logging.getLogger(__name__)
+        try:
+            logger.info(f"🔍 Searching Instagram locations for coordinates: {lat:.6f}, {lng:.6f}")
+            locations = self.client.location_search(lat, lng)
+            if locations:
+                location = locations[0]
+                logger.info(f"✅ Found Instagram location: {location.name} (ID: {location.pk})")
+                return location.name, location
+            else:
+                logger.info("⚠️ No Instagram locations found for these coordinates")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to find Instagram location: {e}")
+        return None, None
+
+    def _extract_location_for_caption(self, image_data: bytes):
+        logger = logging.getLogger(__name__)
+        logger.info("🔍 Starting location extraction process...")
+        
+        location = self._extract_location_from_exif(image_data)
+        if location and 'lat' in location and 'lng' in location:
+            logger.info(f"📍 GPS coordinates extracted: {location['lat']:.6f}, {location['lng']:.6f}")
+            name, loc_obj = self.get_instagram_location_name_and_obj(location['lat'], location['lng'])
+            if name:
+                location['name'] = name
+                logger.info(f"✅ Final location name: {name}")
+            else:
+                logger.info("⚠️ Could not find Instagram location name, using GPS coordinates")
+            location['insta_obj'] = loc_obj
+        else:
+            logger.info("⚠️ No location data extracted from image")
+        return location
+
+    def post_image(self, image_data: bytes, caption: Optional[str] = None) -> bool:
         """
         Post an image to Instagram (public).
         
@@ -258,8 +304,8 @@ class InstagramService:
         logger = logging.getLogger(__name__)
         
         try:
-            # Extract location from EXIF if not provided
-            location = self._extract_location_from_exif(image_data)
+            # Extract location from EXIF and Instagram
+            location = self._extract_location_for_caption(image_data)
             
             # Generate caption if not provided
             if not caption:
@@ -277,15 +323,17 @@ class InstagramService:
             try:
                 # Use retry mechanism for posting
                 def post_photo():
-                    return self.client.photo_upload(
-                        Path(temp_file_path),
-                        caption=caption,
-                        extra_data={
+                    kwargs = {
+                        'caption': caption,
+                        'extra_data': {
                             "custom_accessibility_caption": "",
                             "like_and_view_counts_disabled": "0",
                             "disable_comments": "0",
                         }
-                    )
+                    }
+                    if location and location.get('insta_obj'):
+                        kwargs['location'] = location['insta_obj']
+                    return self.client.photo_upload(Path(temp_file_path), **kwargs)
                 
                 # Upload photo with retry mechanism
                 media = self._retry_with_backoff(post_photo)
@@ -377,3 +425,240 @@ class InstagramService:
             logger = logging.getLogger(__name__)
             logger.error(f"Failed to get session info: {e}")
             return {'error': str(e)} 
+
+def generate_instagram_caption(image_path: str, metadata: dict) -> str:
+    ai_service = GeminiCaptionService()
+    result = ai_service.generate_caption(image_path, metadata)
+    # Only return Hebrew caption with hashtags
+    caption = f"{result['he']}\n{result['hashtags']}"
+    return caption
+
+# Example test function for local testing (does not post to Instagram)
+def test_generate_captions_for_photos(photo_dir: str, metadata_func=None):
+    if not isinstance(photo_dir, str) or not photo_dir:
+        print("Invalid photo_dir argument. Must be a non-empty string.")
+        return
+    photos = [f for f in os.listdir(photo_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+    photos = [f for f in photos if isinstance(f, str) and f]
+    if len(photos) > 3:
+        photos = random.sample(photos, 3)
+    for photo in photos:
+        image_path = os.path.join(photo_dir, photo)
+        if not isinstance(image_path, str) or not image_path or not os.path.isfile(image_path):
+            continue
+        # Extract location for caption
+        with open(image_path, 'rb') as f:
+            image_data = f.read()
+        service = InstagramService()
+        location = service._extract_location_for_caption(image_data)
+        location_name = location['name'] if location and 'name' in location else 'Unknown'
+        metadata = metadata_func(photo) if metadata_func else {'location': location_name}
+        assert isinstance(image_path, str) and image_path, "image_path must be a non-empty string"
+        caption = generate_instagram_caption(image_path, metadata)
+        print(f"Photo: {photo}\nLocation: {location_name}\nCaption:\n{caption}\n{'-'*40}") 
+
+# Safe test function that doesn't initialize InstagramService
+def safe_test_generate_captions_for_photos(photo_dir: str, metadata_func=None):
+    """
+    Safe test function that only tests caption generation and EXIF extraction.
+    Does NOT initialize InstagramService to avoid any Instagram API calls.
+    """
+    if not isinstance(photo_dir, str) or not photo_dir:
+        print("Invalid photo_dir argument. Must be a non-empty string.")
+        return
+    
+    if not os.path.exists(photo_dir):
+        print(f"Directory {photo_dir} does not exist.")
+        return
+    
+    photos = [f for f in os.listdir(photo_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+    photos = [f for f in photos if isinstance(f, str) and f]
+    
+    if not photos:
+        print(f"No image files found in {photo_dir}")
+        return
+    
+    if len(photos) > 3:
+        photos = random.sample(photos, 3)
+    
+    print(f"Testing {len(photos)} photos from {photo_dir}...")
+    print("=" * 60)
+    
+    for photo in photos:
+        image_path = os.path.join(photo_dir, photo)
+        if not isinstance(image_path, str) or not image_path or not os.path.isfile(image_path):
+            continue
+        
+        print(f"\n📸 Photo: {photo}")
+        print("-" * 40)
+        
+        # Extract location from EXIF only (no Instagram API calls)
+        try:
+            with open(image_path, 'rb') as f:
+                image_data = f.read()
+            
+            # Extract location from EXIF using standalone function
+            location = extract_location_from_exif_standalone(image_data)
+            location_name = 'Unknown'
+            
+            if location and 'lat' in location and 'lng' in location:
+                print(f"📍 GPS Coordinates: {location['lat']:.6f}, {location['lng']:.6f}")
+                location_name = f"GPS Location ({location['lat']:.4f}, {location['lng']:.4f})"
+                print(f"📍 Location Name: {location_name}")
+            else:
+                print("⚠️ No GPS data found in EXIF")
+            
+            # Generate caption
+            metadata = metadata_func(photo) if metadata_func else {'location': location_name}
+            caption_result = generate_instagram_caption(image_path, metadata)
+            
+            print(f"\n📝 Generated Caption:")
+            print(caption_result)
+            
+        except Exception as e:
+            print(f"❌ Error processing {photo}: {e}")
+        
+        print("=" * 60)
+
+def extract_location_from_exif_standalone(image_data: bytes):
+    """
+    Standalone function to extract GPS location from image EXIF data.
+    Does not require InstagramService initialization.
+    """
+    logger = logging.getLogger(__name__)
+    try:
+        # Create temporary file for PIL
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            temp_file.write(image_data)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Open image and extract EXIF
+            with Image.open(temp_file_path) as img:
+                # Use proper EXIF extraction method
+                exif_data = img.getexif() if hasattr(img, 'getexif') else None
+            
+            if not exif_data:
+                logger.info("No EXIF data found in image")
+                return None
+            
+            logger.info(f"EXIF data found with {len(exif_data)} tags")
+            
+            # Extract GPS data - handle nested GPSInfo IFD
+            gps_data = {}
+            
+            # Try to get nested GPS info using IFD
+            try:
+                gps_info = exif_data.get_ifd(0x8825)  # GPSInfo IFD
+                if gps_info:
+                    logger.info(f"Found GPSInfo IFD with {len(gps_info)} tags")
+                    # Store GPS data with tag IDs as keys
+                    for tag_id in gps_info:
+                        gps_data[tag_id] = gps_info[tag_id]
+                        tag_name = GPSTAGS.get(tag_id, f"GPS{tag_id}")
+                        logger.info(f"Found GPS tag: {tag_name} ({tag_id}) = {gps_info[tag_id]}")
+            except Exception as e:
+                logger.warning(f"Failed to access GPSInfo IFD: {e}")
+            
+            if not gps_data:
+                logger.info("No GPS data found in EXIF")
+                return None
+            
+            logger.info(f"Found {len(gps_data)} GPS tags total")
+            
+            # Convert GPS coordinates to decimal degrees
+            location = convert_gps_to_decimal_standalone(gps_data)
+            if location:
+                logger.info(f"Converted GPS coordinates: {location['lat']:.6f}, {location['lng']:.6f}")
+                return {
+                    'lat': location['lat'],
+                    'lng': location['lng'],
+                    'name': f"GPS Location ({location['lat']:.4f}, {location['lng']:.4f})"
+                }
+            else:
+                logger.warning("Failed to convert GPS coordinates to decimal degrees")
+            
+            return None
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+                
+    except Exception as e:
+        logger.warning(f"Failed to extract location from EXIF: {e}")
+        return None
+
+def convert_gps_to_decimal_standalone(gps_data):
+    """Convert GPS coordinates to decimal degrees (standalone version)."""
+    logger = logging.getLogger(__name__)
+    try:
+        logger.info(f"Processing GPS data: {gps_data}")
+        
+        # Extract latitude - use tag IDs directly
+        gps_lat = gps_data.get(2)  # GPSLatitude
+        gps_lat_ref = gps_data.get(1)  # GPSLatitudeRef
+        gps_lon = gps_data.get(4)  # GPSLongitude  
+        gps_lon_ref = gps_data.get(3)  # GPSLongitudeRef
+        
+        logger.info(f"Latitude data: {gps_lat}, ref: {gps_lat_ref}")
+        logger.info(f"Longitude data: {gps_lon}, ref: {gps_lon_ref}")
+        
+        if gps_lat and gps_lat_ref:
+            lat = convert_dms_to_decimal_standalone(gps_lat)
+            if lat is not None and gps_lat_ref == 'S':
+                lat = -lat
+            logger.info(f"Converted latitude: {lat}")
+        else:
+            logger.warning("Missing GPSLatitude or GPSLatitudeRef")
+            return None
+        
+        if gps_lon and gps_lon_ref:
+            lon = convert_dms_to_decimal_standalone(gps_lon)
+            if lon is not None and gps_lon_ref == 'W':
+                lon = -lon
+            logger.info(f"Converted longitude: {lon}")
+        else:
+            logger.warning("Missing GPSLongitude or GPSLongitudeRef")
+            return None
+        
+        return {'lat': lat, 'lng': lon}
+        
+    except Exception as e:
+        logger.error(f"Failed to convert GPS coordinates: {e}")
+        return None
+
+def convert_dms_to_decimal_standalone(dms):
+    """Convert degrees, minutes, seconds to decimal degrees (standalone version)."""
+    logger = logging.getLogger(__name__)
+    try:
+        logger.info(f"Converting DMS: {dms} (type: {type(dms)})")
+        
+        if isinstance(dms, (list, tuple)):
+            if len(dms) >= 3:
+                degrees = float(dms[0])
+                minutes = float(dms[1])
+                seconds = float(dms[2])
+            else:
+                logger.error(f"DMS data too short: {dms}")
+                return None
+        elif isinstance(dms, str):
+            parts = dms.split(',')
+            if len(parts) >= 3:
+                degrees = float(parts[0].strip())
+                minutes = float(parts[1].strip())
+                seconds = float(parts[2].strip())
+            else:
+                logger.error(f"Cannot parse DMS string: {dms}")
+                return None
+        else:
+            logger.error(f"Unsupported DMS data type: {type(dms)}")
+            return None
+        
+        result = degrees + (minutes / 60.0) + (seconds / 3600.0)
+        logger.info(f"DMS {dms} -> decimal {result}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error converting DMS {dms}: {e}")
+        return None 

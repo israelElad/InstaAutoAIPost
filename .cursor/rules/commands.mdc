@@ -1,11 +1,10 @@
 ---
-description: This rule defines the process for documenting important terminal commands, including how to handle sensitive information by redacting it in the main documentation file and storing unredacted versions in a separate, git-ignored file.
-globs: []
-alwaysApply: true
+description: Always include when composing new commands
+alwaysApply: false
 ---
 # Important Commands Documentation Rule
 
-This rule outlines the standard procedure for documenting important terminal commands relevant to the project's development and deployment. It emphasizes the secure handling of sensitive information.
+This rule outlines the standard procedure for documenting important terminal commands relevant to the project's development and deployment. It emphasizes the secure handling of sensitive information while doing it.
 
 ## 1. General Commands
 

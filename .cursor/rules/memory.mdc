@@ -3,11 +3,6 @@ description: ALWAYS INCLUDE to HAVE Project Context
 globs: 
 alwaysApply: false
 ---
----
-description: ALWAYS INCLUDE to HAVE Project Context.
-globs: 
-alwaysApply: true
----
 # Memory Files Structure
 This outlines the fundamental principles, required files, workflow structure, and essential procedures that govern documentation, and maintaining a memory using file system.
 The Memory Files consists of required core files and optional context files. Files build upon each other in a clear hierarchy:
@@ -84,6 +79,11 @@ flowchart TD
   - It captures important patterns, preferences, and project intelligence
   - It is detailed in @lessons-learned.mdc
 
+  8. [commands.mdc](mdc:.cursor/rules/commands.mdc) (.cursor/rules/commands.mdc): Important Commands Documentation
+  - It captures important commands we use along the way
+  - Commands with sensitive data are redacted in the saved md, but copied fully to another md file with sensitive commands.
+  - It should be applied when trying to compose new commands, as it helps avoiding re-composing already documented commands.
+  
 ## Context Files (Optional)
 Detailed docs. Retrieve on demand if needed for context.
 

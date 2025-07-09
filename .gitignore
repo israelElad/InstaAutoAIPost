@@ -175,3 +175,4 @@ ai_chats/cursor_update_requirements_file_for_lat.md
 insta-auto-ai-post-key.pem
 .cursorindexingignore
 docs/.sensitive_commands.mdc
+temp/

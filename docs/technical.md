@@ -52,9 +52,13 @@ The project follows a modular structure, separating concerns into handlers, serv
 
 ### 3.3 `src/services/instagram_service.py`
 - Encapsulates all logic related to interacting with the Instagram API. This includes:
-    - User authentication.
-    - Posting images to Instagram.
+    - User authentication with session persistence.
+    - Posting images to Instagram with location tagging.
     - Handling Instagram API responses and errors.
+    - GPS location extraction from image EXIF data.
+    - Instagram location search and tagging.
+    - Retry mechanisms with exponential backoff.
+    - User agent management to avoid detection.
 
 ### 3.4 `src/services/s3_service.py`
 - Manages all interactions with the AWS S3 bucket, including:
@@ -99,5 +103,31 @@ The project follows a modular structure, separating concerns into handlers, serv
 
 - **Health Endpoints**: FastAPI endpoints (`/health`, `/status`, `/debug/session`, `/debug/ip`) provide real-time status and debugging information.
 - **Logging**: The application is expected to have comprehensive logging for operational insights and troubleshooting.
+- **Session Monitoring**: Instagram session persistence is monitored and validated to ensure reliable authentication.
+
+## 8. Session Management and Authentication
+
+### 8.1 Instagram Session Persistence
+- **Session File**: `session.json` stores Instagram authentication tokens and device settings
+- **Session Validation**: Automatic validation of session validity before API calls
+- **Fallback Authentication**: Graceful fallback to username/password login if session is invalid
+- **User Agent Management**: Samsung Galaxy S23 Android 14 user agent to avoid detection
+
+### 8.2 Session Debugging Findings
+- **EC2 Environment**: ✅ Working session persistence (1364 bytes session file)
+- **Local Environment**: ❌ Session file issues due to missing user agent configuration
+- **Root Cause**: CSRF token errors prevented session save when user agent was not set
+- **Fix Applied**: User agent now properly configured in `InstagramService.__init__()`
+
+### 8.3 Session File Structure
+```json
+{
+    "uuids": { "phone_id", "uuid", "client_session_id", ... },
+    "authorization_data": { "ds_user_id", "sessionid" },
+    "device_settings": { "app_version", "android_version", ... },
+    "user_agent": "Instagram 269.0.0.18.75 Android...",
+    "last_login": 1751623901.9124508
+}
+```
 
 This document serves as a living guide and will be updated as the technical landscape of the project evolves.

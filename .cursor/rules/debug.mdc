@@ -3,11 +3,6 @@ description: Always include while DEBUGGING
 globs: 
 alwaysApply: false
 ---
----
-description: Include these rules while DEBUGGING.
-globs: 
-alwaysApply: true
----
 <DEBUGGING>
 Below debugging routine is for persistent errors or incomplete fixes. So use this routine only when got stuck.
 <DIAGNOSE>

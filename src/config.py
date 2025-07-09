@@ -171,4 +171,4 @@ ERROR_MESSAGES = {
     'upload_failed': 'Failed to upload image to Instagram',
     's3_error': 'Error accessing S3 bucket',
     'instagram_error': 'Error with Instagram API',
-} 
+}
