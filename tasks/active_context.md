@@ -51,3 +51,5 @@ When `test_generate_captions_for_photos` accidentally triggered Instagram connec
 - Are there other Instagram API detection mechanisms we should address?
 
 This document will be continuously updated to reflect changes in project focus, immediate tasks, and relevant contextual information. 
+
+- Instagram login lockout: On any login failure, a `login_failed.lock` file is created. If this file exists, the app exits immediately on startup, preventing further Instagram API calls. To clear the lockout, delete the file after resolving the issue. 

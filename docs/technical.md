@@ -130,4 +130,13 @@ The project follows a modular structure, separating concerns into handlers, serv
 }
 ```
 
+## Instagram Login Lockout Mechanism
+
+To prevent repeated failed login attempts and potential account/IP blacklisting, the application now implements a lockout mechanism:
+
+- On any Instagram login failure (including session validation failure), a lock file named `login_failed.lock` is created in the project root (or as specified by the `INSTAGRAM_LOCK_FILE` environment variable).
+- On startup, if this lock file exists, the app will exit immediately and will not attempt any further Instagram API calls.
+- This mechanism ensures that after a failed login, the app does not enter a restart loop or risk further lockouts from Instagram.
+- To clear the lockout and allow the app to attempt login again, manually delete the `login_failed.lock` file after resolving the underlying issue (e.g., updating credentials or resolving security alerts).
+
 This document serves as a living guide and will be updated as the technical landscape of the project evolves.

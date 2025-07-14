@@ -95,3 +95,5 @@ This document outlines the high-level task plan and ongoing development tasks fo
   - Add audit logging for authentication events
 
 This plan will evolve as the project progresses and new requirements emerge. 
+
+- Deployment/Recovery Note: The app now uses a lockout file (`login_failed.lock`) to prevent repeated failed Instagram logins. If login fails, this file is created and must be deleted manually after resolving the issue before the app will attempt login again. 

@@ -14,6 +14,7 @@ import time
 import random
 from .ai_caption_service import GeminiCaptionService
 from typing import Optional
+import traceback
 
 class InstagramService:
     SESSION_FILE = os.path.abspath(os.environ.get("INSTAGRAM_SESSION_FILE", "session.json"))
@@ -21,9 +22,14 @@ class InstagramService:
     DELAY_RANGE = [4, 8]
     MAX_RETRIES = 3
     RETRY_DELAYS = [6, 18, 35]
+    LOCK_FILE = os.path.abspath(os.environ.get("INSTAGRAM_LOCK_FILE", "login_failed.lock"))
 
     def __init__(self):
         """Initialize Instagram client and login with best practices."""
+        # Lockout check: exit early if lock file exists
+        if os.path.exists(self.LOCK_FILE):
+            logging.error(f"Lock file present: {self.LOCK_FILE}. Exiting to prevent further Instagram API calls.")
+            raise SystemExit(f"Lockout active: {self.LOCK_FILE} exists.")
         self.client = Client()
         self.client.delay_range = self.DELAY_RANGE
         if self.PROXY:
@@ -33,12 +39,22 @@ class InstagramService:
         self._login()
 
     def _validate_session(self) -> bool:
+        logger = logging.getLogger(__name__)
         try:
             if INSTAGRAM_USERNAME:
                 self.client.user_info_by_username(INSTAGRAM_USERNAME)
+                logger.debug("Session validation succeeded.")
                 return True
+            logger.debug("No INSTAGRAM_USERNAME set for session validation.")
             return False
-        except (LoginRequired, ClientError, Exception):
+        except Exception as e:
+            logger.error(f"Session validation failed: {e}")
+            logger.error("Exception Trace:")
+            logger.error(traceback.format_exc())
+            # If the client has a last response, log it
+            last_response = getattr(self.client, 'last_response', None)
+            if last_response is not None:
+                logger.error(f"Last response content: {getattr(last_response, 'text', str(last_response))}")
             return False
 
     def log_public_ip(self):
@@ -82,6 +98,8 @@ class InstagramService:
                     logger.info("⚠️ Session invalid, will re-login with username/password.")
             except Exception as e:
                 logger.warning(f"⚠️ Couldn't login using session: {e}")
+                logger.error("Exception Trace:")
+                logger.error(traceback.format_exc())
         else:
             logger.info(f"No valid session file found at {self.SESSION_FILE}, will login with credentials.")
         # If session not loaded, login with credentials
@@ -93,9 +111,31 @@ class InstagramService:
                 logger.info("✅ Logged in with username/password.")
                 # Validate the new session
                 if not self._validate_session():
+                    # Write lock file immediately on failed validation
+                    with open(self.LOCK_FILE, 'w', encoding='utf-8') as lockf:
+                        lockf.write('Login failed: session validation failed\n')
+                    logger.error(f"Login failed, lock file created: {self.LOCK_FILE}")
                     raise Exception("Login succeeded but session validation failed")
             except Exception as e:
+                # Write lock file immediately on any login exception
+                try:
+                    with open(self.LOCK_FILE, 'w', encoding='utf-8') as lockf:
+                        lockf.write(f'Login failed: {str(e)}\n')
+                    logger.error(f"Login failed, lock file created: {self.LOCK_FILE}")
+                except Exception as lock_e:
+                    logger.error(f"Failed to write lock file: {lock_e}")
                 logger.error(f"❌ Failed to login to Instagram: {e}")
+                logger.error("Exception Trace:")
+                logger.error(traceback.format_exc())
+                # Log session file content and permissions if it exists
+                if os.path.exists(self.SESSION_FILE):
+                    try:
+                        with open(self.SESSION_FILE, 'r', encoding='utf-8') as f:
+                            session_content = f.read()
+                        logger.error(f"Session file content: {session_content}")
+                        logger.error(f"Session file permissions: {oct(os.stat(self.SESSION_FILE).st_mode)}")
+                    except Exception as file_e:
+                        logger.error(f"Failed to read session file: {file_e}")
                 raise Exception(f"Failed to login to Instagram: {str(e)}")
         # Always dump settings after successful login
         try:
@@ -106,6 +146,8 @@ class InstagramService:
             logger.info(f"✅ Session saved to: {self.SESSION_FILE}")
         except Exception as e:
             logger.warning(f"⚠️ Failed to save Instagram session: {e}")
+            logger.error("Exception Trace:")
+            logger.error(traceback.format_exc())
 
     def _retry_with_backoff(self, func, *args, **kwargs):
         """Retry function with exponential backoff."""
