@@ -41,10 +41,33 @@ class InstagramService:
         except (LoginRequired, ClientError, Exception):
             return False
 
+    def log_public_ip(self):
+        """Log the public IP address of the current machine (EC2)."""
+        logger = logging.getLogger(__name__)
+        try:
+            ip = requests.get("https://api.ipify.org").text
+            logger.info(f"Public IP address: {ip}")
+            return ip
+        except Exception as e:
+            logger.warning(f"Could not fetch public IP: {e}")
+            return None
+
+    def log_pre_posting_info(self, image_key: str, caption: str):
+        """Log all relevant info before posting to Instagram."""
+        logger = logging.getLogger(__name__)
+        logger.info("=== Instagram Posting Pre-Check ===")
+        self.log_public_ip()
+        logger.info(f"Instagram username: {INSTAGRAM_USERNAME}")
+        logger.info(f"Image key: {image_key}")
+        logger.info(f"Generated caption: {caption}")
+        logger.info("====================================")
+
     def _login(self):
         logger = logging.getLogger(__name__)
         session_loaded = False
         logger.info(f"Session file to use: {self.SESSION_FILE}")
+        self.log_public_ip()
+        logger.info(f"Instagram username: {INSTAGRAM_USERNAME}")
         # Try to load session settings if available
         if os.path.exists(self.SESSION_FILE) and os.path.getsize(self.SESSION_FILE) > 0:
             try:
@@ -328,7 +351,7 @@ class InstagramService:
         final_caption = str(caption) if caption is not None else None
         return self._post_image_internal(image_data, final_caption, is_private=False)
 
-    def _post_image_internal(self, image_data: bytes, caption: Optional[str] = None, is_private: bool = False) -> bool:
+    def _post_image_internal(self, image_data: bytes, caption: Optional[str] = None, is_private: bool = False, image_key: Optional[str] = None) -> bool:
         """
         Internal method to post an image to Instagram.
         Args:
@@ -353,6 +376,12 @@ class InstagramService:
                 temp_file.write(image_data)
                 temp_file_path = temp_file.name
             try:
+                # Log pre-posting info (image_key may be None if not provided)
+                self.log_public_ip()
+                logger.info(f"Instagram username: {INSTAGRAM_USERNAME}")
+                if image_key:
+                    logger.info(f"Image key: {image_key}")
+                logger.info(f"Generated caption: {caption}")
                 # Use retry mechanism for posting
                 def post_photo():
                     kwargs = {

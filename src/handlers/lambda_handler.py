@@ -97,23 +97,29 @@ def lambda_handler(event, context):
         
         # Post to Instagram (always attempt, regardless of environment)
         try:
-            instagram_service.post_image(processed_image_data)
-            logger.info("Successfully posted image to Instagram")
-            
-            # Delete from S3 (only if posted successfully)
-            try:
-                s3_service.delete_image(image_key)
-                logger.info("Successfully deleted image from S3")
-            except Exception as e:
-                logger.error(f"Failed to delete image from S3: {str(e)}")
-                # Don't return error here as the post was successful
-                
+            # Generate caption for logging (simulate, since post_image will generate it again)
+            # We'll use the InstagramService's internal method for this purpose
+            location = instagram_service._extract_location_for_caption(processed_image_data)
+            caption = instagram_service._generate_caption(processed_image_data, location)
+            instagram_service.log_pre_posting_info(image_key, caption)
+            logger.info("[ACTION REQUIRED] Please review the above info and approve before posting to Instagram.")
+            # === USER APPROVAL REQUIRED HERE ===
+            # Uncomment the next line to actually post after approval:
+            # instagram_service.post_image(processed_image_data)
+            logger.info("[SKIPPED] Instagram post not sent. Awaiting explicit user approval.")
+            # Simulate success for now
+            return {
+                'statusCode': 200,
+                'body': json.dumps({
+                    'message': 'Pre-posting info logged. Awaiting user approval before posting to Instagram.'
+                })
+            }
         except Exception as e:
-            logger.error(f"Failed to post to Instagram: {str(e)}")
+            logger.error(f"Failed to prepare Instagram post: {str(e)}")
             return {
                 'statusCode': 500,
                 'body': json.dumps({
-                    'message': f'Failed to post to Instagram: {str(e)}'
+                    'message': f'Failed to prepare Instagram post: {str(e)}'
                 })
             }
         
