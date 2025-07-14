@@ -16,57 +16,69 @@ from .ai_caption_service import GeminiCaptionService
 from typing import Optional
 
 class InstagramService:
-    SESSION_FILE = os.environ.get("INSTAGRAM_SESSION_FILE", "session.json")
+    SESSION_FILE = os.path.abspath(os.environ.get("INSTAGRAM_SESSION_FILE", "session.json"))
     PROXY = os.environ.get("INSTAGRAM_PROXY")
-    DELAY_RANGE = [4, 8]  # Slightly different delays
+    DELAY_RANGE = [4, 8]
     MAX_RETRIES = 3
-    RETRY_DELAYS = [6, 18, 35]  # Different backoff delays
-    
-    # Samsung Galaxy S23 - realistic user agent for Israel
-    USER_AGENT = "Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36"
+    RETRY_DELAYS = [6, 18, 35]
 
     def __init__(self):
         """Initialize Instagram client and login with best practices."""
         self.client = Client()
         self.client.delay_range = self.DELAY_RANGE
-        self.client.user_agent = self.USER_AGENT  # Set the user agent
         if self.PROXY:
+            logging.info(f"Setting proxy: {self.PROXY}")
             self.client.set_proxy(self.PROXY)
+        logging.info(f"Instagram session file path: {self.SESSION_FILE}")
         self._login()
 
+    def _validate_session(self) -> bool:
+        try:
+            if INSTAGRAM_USERNAME:
+                self.client.user_info_by_username(INSTAGRAM_USERNAME)
+                return True
+            return False
+        except (LoginRequired, ClientError, Exception):
+            return False
+
     def _login(self):
-        """Login to Instagram using persistent session if available."""
         logger = logging.getLogger(__name__)
         session_loaded = False
+        logger.info(f"Session file to use: {self.SESSION_FILE}")
         # Try to load session settings if available
-        if os.path.exists(self.SESSION_FILE):
+        if os.path.exists(self.SESSION_FILE) and os.path.getsize(self.SESSION_FILE) > 0:
             try:
+                logger.info(f"🔄 Attempting to load session from: {self.SESSION_FILE}")
                 self.client.load_settings(Path(self.SESSION_FILE))
-                self.client.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                # Check if session is valid
-                try:
-                    self.client.get_timeline_feed()
+                logger.info(f"Loaded session settings from {self.SESSION_FILE}")
+                # Validate the loaded session
+                if self._validate_session():
                     session_loaded = True
                     logger.info("✅ Instagram session loaded and valid.")
-                except LoginRequired:
-                    logger.info("⚠️ Session invalid, re-logging in with username/password.")
-                    old_settings = self.client.get_settings()
-                    self.client.set_settings({})
-                    if "uuids" in old_settings:
-                        self.client.set_uuids(old_settings["uuids"])
-                    self.client.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                    logger.info("✅ Logged in with username/password after session invalid.")
+                else:
+                    logger.info("⚠️ Session invalid, will re-login with username/password.")
             except Exception as e:
                 logger.warning(f"⚠️ Couldn't login using session: {e}")
+        else:
+            logger.info(f"No valid session file found at {self.SESSION_FILE}, will login with credentials.")
+        # If session not loaded, login with credentials
         if not session_loaded:
             try:
+                logger.info("🔐 Logging in with username/password...")
+                time.sleep(random.uniform(2, 5))
                 self.client.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
                 logger.info("✅ Logged in with username/password.")
+                # Validate the new session
+                if not self._validate_session():
+                    raise Exception("Login succeeded but session validation failed")
             except Exception as e:
                 logger.error(f"❌ Failed to login to Instagram: {e}")
                 raise Exception(f"Failed to login to Instagram: {str(e)}")
         # Always dump settings after successful login
         try:
+            session_dir = os.path.dirname(self.SESSION_FILE)
+            if session_dir and not os.path.exists(session_dir):
+                os.makedirs(session_dir, exist_ok=True)
             self.client.dump_settings(Path(self.SESSION_FILE))
             logger.info(f"✅ Session saved to: {self.SESSION_FILE}")
         except Exception as e:
@@ -136,15 +148,30 @@ class InstagramService:
                 
                 logger.info(f"✅ EXIF data found with {len(exif_data)} tags")
                 
-                # Extract GPS data
+                # Extract GPS data - handle nested GPSInfo IFD
                 gps_data = {}
-                for tag_id in exif_data:
-                    tag = TAGS.get(tag_id, tag_id)
-                    data = exif_data[tag_id]
+                
+                # Try to get nested GPS info using IFD (same as standalone function)
+                try:
+                    gps_info = exif_data.get_ifd(0x8825)  # GPSInfo IFD
+                    if gps_info:
+                        logger.info(f"Found GPSInfo IFD with {len(gps_info)} tags")
+                        # Store GPS data with tag IDs as keys (consistent with standalone)
+                        for tag_id in gps_info:
+                            gps_data[tag_id] = gps_info[tag_id]
+                            tag_name = GPSTAGS.get(tag_id, f"GPS{tag_id}")
+                            logger.info(f"📍 Found GPS tag: {tag_name} ({tag_id}) = {gps_info[tag_id]}")
+                except Exception as e:
+                    logger.warning(f"Failed to access GPSInfo IFD: {e}")
                     
-                    if isinstance(tag, str) and tag.startswith('GPS'):
-                        gps_data[tag] = data
-                        logger.info(f"📍 Found GPS tag: {tag} = {data}")
+                    # Fallback to direct tag search
+                    for tag_id in exif_data:
+                        tag = TAGS.get(tag_id, tag_id)
+                        data = exif_data[tag_id]
+                        
+                        if isinstance(tag, str) and tag.startswith('GPS'):
+                            gps_data[tag] = data
+                            logger.info(f"📍 Found GPS tag: {tag} = {data}")
                 
                 if not gps_data:
                     logger.info("⚠️ No GPS data found in EXIF")
@@ -178,18 +205,26 @@ class InstagramService:
     def _convert_gps_to_decimal(self, gps_data):
         """Convert GPS coordinates to decimal degrees."""
         try:
-            # Extract latitude
-            if 'GPSLatitude' in gps_data and 'GPSLatitudeRef' in gps_data:
-                lat = self._convert_dms_to_decimal(gps_data['GPSLatitude'])
-                if gps_data['GPSLatitudeRef'] == 'S':
+            # Extract latitude - use tag IDs directly (consistent with standalone)
+            gps_lat = gps_data.get(2)  # GPSLatitude
+            gps_lat_ref = gps_data.get(1)  # GPSLatitudeRef
+            gps_lon = gps_data.get(4)  # GPSLongitude  
+            gps_lon_ref = gps_data.get(3)  # GPSLongitudeRef
+            
+            if gps_lat and gps_lat_ref:
+                lat = self._convert_dms_to_decimal(gps_lat)
+                if lat is None:
+                    return None
+                if gps_lat_ref == 'S':
                     lat = -lat
             else:
                 return None
             
-            # Extract longitude
-            if 'GPSLongitude' in gps_data and 'GPSLongitudeRef' in gps_data:
-                lon = self._convert_dms_to_decimal(gps_data['GPSLongitude'])
-                if gps_data['GPSLongitudeRef'] == 'W':
+            if gps_lon and gps_lon_ref:
+                lon = self._convert_dms_to_decimal(gps_lon)
+                if lon is None:
+                    return None
+                if gps_lon_ref == 'W':
                     lon = -lon
             else:
                 return None
@@ -203,48 +238,54 @@ class InstagramService:
 
     def _convert_dms_to_decimal(self, dms):
         """Convert degrees, minutes, seconds to decimal degrees."""
-        degrees = float(dms[0])
-        minutes = float(dms[1])
-        seconds = float(dms[2])
-        
-        return degrees + (minutes / 60.0) + (seconds / 3600.0)
+        try:
+            if not dms or len(dms) < 3:
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Invalid DMS data: {dms}")
+                return None
+            
+            degrees = float(dms[0])
+            minutes = float(dms[1])
+            seconds = float(dms[2])
+            
+            return degrees + (minutes / 60.0) + (seconds / 3600.0)
+        except (ValueError, TypeError, IndexError) as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to convert DMS {dms}: {e}")
+            return None
 
     def _generate_caption(self, image_data: bytes, location=None) -> str:
         """
-        Generate a caption for the image with different style.
-        
+        Generate a caption for the image using GeminiCaptionService.
         Args:
             image_data (bytes): The image data
             location (dict): Location data if available
-            
         Returns:
             str: Generated caption
         """
-        # Different caption style to avoid detection patterns
-        captions = [
-            "Amazing moment captured! 📸✨ #photography #lifestyle",
-            "Living life to the fullest! 🌟 #vibes #goodlife",
-            "Beautiful memories made today! 💫 #memories #happy",
-            "Another day, another adventure! 🚀 #adventure #explore",
-            "Life is beautiful when you capture it! 📷 #beautiful #life",
-            "Creating memories one photo at a time! 📸 #memories #photography",
-            "Every picture tells a story! 📖 #story #photography",
-            "Finding beauty in everyday moments! 🌸 #beauty #moments"
-        ]
-        
-        caption = random.choice(captions)
-        
-        # Add location if available
-        if location and isinstance(location, dict) and 'name' in location:
-            caption += f"\n📍 {location['name']}"
-            caption += " #location #travel"
-        
-        return caption
+        # Save image to temp file for Gemini
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            temp_file.write(image_data)
+            temp_file_path = temp_file.name
+        try:
+            metadata = {'location': location['name']} if location and 'name' in location else {}
+            ai_service = GeminiCaptionService()
+            result = ai_service.generate_caption(temp_file_path, metadata)
+            # Only return Hebrew caption with hashtags
+            caption = f"{result['he']}\n{result['hashtags']}"
+            return caption
+        finally:
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
 
     def get_instagram_location_name_and_obj(self, lat, lng):
         logger = logging.getLogger(__name__)
         try:
             logger.info(f"🔍 Searching Instagram locations for coordinates: {lat:.6f}, {lng:.6f}")
+            
+            # Add rate limiting delay before API call
+            time.sleep(random.uniform(2, 5))
+            
             locations = self.client.location_search(lat, lng)
             if locations:
                 location = locations[0]
@@ -277,49 +318,40 @@ class InstagramService:
     def post_image(self, image_data: bytes, caption: Optional[str] = None) -> bool:
         """
         Post an image to Instagram (public).
-        
         Args:
             image_data (bytes): The image data to post
             caption (str): Optional caption for the post
-            
         Returns:
             bool: True if posting was successful
         """
-        # Ensure caption is a string
-        final_caption = str(caption) if caption is not None else ""
+        # If no caption provided, will be generated in _post_image_internal
+        final_caption = str(caption) if caption is not None else None
         return self._post_image_internal(image_data, final_caption, is_private=False)
 
-    def _post_image_internal(self, image_data: bytes, caption: str = "", is_private: bool = False) -> bool:
+    def _post_image_internal(self, image_data: bytes, caption: Optional[str] = None, is_private: bool = False) -> bool:
         """
         Internal method to post an image to Instagram.
-        
         Args:
             image_data (bytes): The image data to post
-            caption (str): Caption for the post (defaults to empty string)
+            caption (str): Caption for the post (if None, will be generated)
             is_private (bool): Whether to post as private
-            
         Returns:
             bool: True if posting was successful
         """
         logger = logging.getLogger(__name__)
-        
         try:
             # Extract location from EXIF and Instagram
             location = self._extract_location_for_caption(image_data)
-            
-            # Generate caption if not provided
+            # Generate caption using Gemini if not provided
             if not caption:
                 caption = self._generate_caption(image_data, location)
-            
             # Ensure caption is a string
             if not isinstance(caption, str):
-                caption = "Amazing moment captured! 📸✨ #photography #lifestyle"
-            
+                raise Exception("Caption generation failed or returned non-string.")
             # Save image data to temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
                 temp_file.write(image_data)
                 temp_file_path = temp_file.name
-            
             try:
                 # Use retry mechanism for posting
                 def post_photo():
@@ -334,46 +366,13 @@ class InstagramService:
                     if location and location.get('insta_obj'):
                         kwargs['location'] = location['insta_obj']
                     return self.client.photo_upload(Path(temp_file_path), **kwargs)
-                
                 # Upload photo with retry mechanism
                 media = self._retry_with_backoff(post_photo)
-                
-                # Set privacy if needed
-                if is_private:
-                    try:
-                        # For private posts, we need to handle this differently
-                        # Since InstaGrapi doesn't have a direct is_private parameter,
-                        # we'll just log that it was posted as public
-                        logger.info("✅ Image posted as public (private posting not supported in current version)")
-                    except Exception as e:
-                        logger.warning(f"⚠️ Failed to set private mode: {e}")
-                        logger.info("✅ Image posted as public")
-                else:
-                    logger.info("✅ Image posted as public")
-                
-                # Add location if available
-                if location:
-                    try:
-                        # Try to find a nearby location on Instagram
-                        locations = self.client.location_search(location['lat'], location['lng'])
-                        if locations:
-                            # Use the first (closest) location
-                            closest_location = locations[0]
-                            # Note: Location editing might not be supported in current version
-                            logger.info(f"ℹ️ Location found: {closest_location.name} (location editing not implemented)")
-                        else:
-                            logger.info("ℹ️ No Instagram location found for GPS coordinates")
-                    except Exception as e:
-                        logger.warning(f"⚠️ Failed to add location: {e}")
-                
                 logger.info(f"✅ Successfully posted image to Instagram (ID: {media.id})")
                 return True
-                
             finally:
-                # Clean up temporary file
                 if os.path.exists(temp_file_path):
                     os.unlink(temp_file_path)
-            
         except ClientError as e:
             logger.error(f"❌ Instagram API error: {str(e)}")
             raise Exception(f"Instagram API error: {str(e)}")
@@ -383,15 +382,26 @@ class InstagramService:
 
     def validate_credentials(self) -> bool:
         """
-        Validate Instagram credentials.
+        Validate Instagram credentials with comprehensive checks.
         
         Returns:
             bool: True if credentials are valid
         """
         try:
+            # Test multiple API endpoints to ensure session is fully valid
             self.client.get_timeline_feed()
+            
+            # Add small delay to avoid rate limiting
+            time.sleep(random.uniform(1, 3))
+            
+            # Test user info endpoint
+            if hasattr(self.client, 'user_id') and INSTAGRAM_USERNAME:
+                self.client.user_info_by_username(INSTAGRAM_USERNAME)
+            
             return True
-        except Exception:
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Credential validation failed: {e}")
             return False 
 
     def get_session_info(self) -> dict:
