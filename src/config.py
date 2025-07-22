@@ -123,7 +123,7 @@ def get_s3_bucket_name() -> Optional[str]:
     return config.get('S3_BUCKET_NAME')
 
 def get_session_file() -> str:
-    return os.getenv('INSTAGRAM_SESSION_FILE', '/app/session.json')
+    return "/app/session.json"
 
 # Direct exports for backward compatibility (lazy properties)
 class LazyConfig:

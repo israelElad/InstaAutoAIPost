@@ -1,5 +1,5 @@
 ---
-description: Always include when composing new commands
+description: Always include when terminal commands may be required
 alwaysApply: false
 ---
 # Important Commands Documentation Rule
@@ -14,20 +14,27 @@ This rule outlines the standard procedure for documenting important terminal com
 
 -   For commands that include sensitive information (e.g., API keys, passwords, specific private resource names, secret IDs):
     1.  **Redaction in `docs/commands.md`**: The command should be added to `docs/commands.md`, but all sensitive parts must be redacted using placeholders like `[REDACTED_INFO]`, `[YOUR_S3_BUCKET_NAME]`, `[YOUR_SECRET_ID]`, etc.
-    2.  **Unredacted Storage in `docs/.sensitive_commands.mdc`**: The full, unredacted, and **literally unaltered** version of the command, **copied directly as is from historical logs (`all.md` or similar sources)**, should be stored in a separate file, specifically `docs/.sensitive_commands.mdc`. This file should also include subsections for context (e.g., "EC2 instance deployment" under "SSH Commands") to clearly categorize and describe the purpose of the commands.
-    3.  **Git Exclusion**: The `docs/.sensitive_commands.mdc` file **must always be listed in `.gitignore`** to ensure it is never committed to version control.
+    2.  **Unredacted Storage in `docs/.sensitive_commands.md`**: The full, unredacted, and **literally unaltered** version of the command, **copied directly as is from historical logs (`all.md` or similar sources)**, should be stored in a separate file, specifically `docs/.sensitive_commands.md`. This file should also include subsections for context (e.g., "EC2 instance deployment" under "SSH Commands") to clearly categorize and describe the purpose of the commands.
+    3.  **Git Exclusion**: The `docs/.sensitive_commands.md` file **must always be listed in `.gitignore`** to ensure it is never committed to version control.
 
 ## 3. Purpose
 
--   This dual-file approach ensures that important commands are easily accessible for all team members (via `docs/commands.md`), while highly sensitive data remains secure and out of version control (in `docs/.sensitive_commands.mdc`).
+-   This dual-file approach ensures that important commands are easily accessible for all team members (via `docs/commands.md`), while highly sensitive data remains secure and out of version control (in `docs/.sensitive_commands.md`).
 
 ## 4. Maintenance and Usage
 
--   This rule, along with the `docs/commands.md` and `docs/.sensitive_commands.mdc` files, should be regularly updated as new commands become relevant or existing ones change.
--   When executing commands, always refer to `docs/.sensitive_commands.mdc` first to avoid re-composing already documented commands. If a command listed in `docs/.sensitive_commands.mdc` becomes irrelevant (e.g., due to changes in asset names, IPs, or parameters), it **must be updated** to reflect the current correct command.
+-   This rule, along with the `docs/commands.md` and `docs/.sensitive_commands.md` files, should be regularly updated as new commands become relevant or existing ones change.
+-   When executing commands, always refer to `docs/.sensitive_commands.md` first to avoid re-composing already documented commands. If a command listed in `docs/.sensitive_commands.md` becomes irrelevant (e.g., due to changes in asset names, IPs, or parameters), it **must be updated** to reflect the current correct command.
 
 ## 5. Best Practices for Command Documentation
 
 -   **Completeness**: Ensure all critical and frequently used project-related terminal commands (development, deployment, debugging, setup) are thoroughly documented in `docs/commands.md`.
 -   **Clarity**: Provide clear descriptions and examples for each command.
 -   **Accuracy**: Keep command syntax and usage up-to-date with the current project environment and tools.
+
+# 6. STRICT COMMAND USAGE ENFORCEMENT
+
+For all deployment, SSH, log, and related terminal operations, the agent (AI or automation) MUST:
+1. Check docs/.sensitive_commands.md for the exact command.
+2. Prefer using the command exactly as documented
+3. If the command is not found or must be modified, update the documentation right aster the new command worked.

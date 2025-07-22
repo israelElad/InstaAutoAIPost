@@ -174,6 +174,16 @@ Before starting the setup, ensure you have the following tools installed:
 ### 4. Python 3.8+
 - **Verification:** Run `python --version` in your terminal
 
+## Dependency Versioning Policy (Hybrid Approach)
+
+- **instagrapi**: Uses a minimum version constraint (e.g., `instagrapi>=2.1.5`) to always get the latest version, since Instagram frequently changes their private API and unofficial libraries break often. This ensures you get critical fixes as soon as they're released. **Test your deployment after each upgrade.**
+- **Other dependencies (boto3, python-dotenv, Pillow)**: Pinned to the latest tested version (e.g., `boto3==1.38.63`) for maximum stability and reproducibility. This avoids accidental breakage from unrelated upstream changes.
+
+**If you encounter a breaking change after upgrading instagrapi:**
+- Check the [instagrapi GitHub issues](https://github.com/subzeroid/instagrapi/issues) for workarounds or fixes.
+- You may temporarily pin to the last working version, but be aware that Instagram may break old versions at any time.
+- Always test your deployment after updating dependencies.
+
 ## End-to-End Setup Guide
 
 Follow these steps to set up and run the Instagram Auto Poster end-to-end:

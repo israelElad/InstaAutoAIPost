@@ -6,19 +6,12 @@ services:
       context: .
       dockerfile: Dockerfile.ec2
     container_name: insta-auto-ai-post
-    restart: unless-stopped
+    restart: on-failure:0
     environment:
       - AWS_REGION=il-central-1
       - AWS_DEFAULT_REGION=il-central-1
       - INSTAGRAM_SESSION_FILE=/app/session.json
     volumes:
       - ./session.json:/app/session.json
+      - ./locks:/app/locks
       - ./logs:/app/logs
-    # ports:
-    #   - "8000:8000"
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 40s 

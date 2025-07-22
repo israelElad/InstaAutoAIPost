@@ -16,20 +16,26 @@ from .ai_caption_service import GeminiCaptionService
 from typing import Optional
 import traceback
 
+# All log messages use the root logger with timestamp formatting (see main.py logging.basicConfig)
+
 class InstagramService:
-    SESSION_FILE = os.path.abspath(os.environ.get("INSTAGRAM_SESSION_FILE", "session.json"))
+    SESSION_FILE = "/app/session.json"
     PROXY = os.environ.get("INSTAGRAM_PROXY")
     DELAY_RANGE = [4, 8]
     MAX_RETRIES = 3
     RETRY_DELAYS = [6, 18, 35]
-    LOCK_FILE = os.path.abspath(os.environ.get("INSTAGRAM_LOCK_FILE", "login_failed.lock"))
+    # Hardcoded lock file path for single source of truth under /app
+    LOCK_FILE = "/app/locks/login_failed.lock"
+
+    @staticmethod
+    def wait_on_lock():
+        while os.path.exists(InstagramService.LOCK_FILE):
+            logging.warning(f"Lock file {InstagramService.LOCK_FILE} exists. Waiting for it to be deleted...")
+            time.sleep(60)
 
     def __init__(self):
         """Initialize Instagram client and login with best practices."""
-        # Lockout check: exit early if lock file exists
-        if os.path.exists(self.LOCK_FILE):
-            logging.error(f"Lock file present: {self.LOCK_FILE}. Exiting to prevent further Instagram API calls.")
-            raise SystemExit(f"Lockout active: {self.LOCK_FILE} exists.")
+        InstagramService.wait_on_lock()
         self.client = Client()
         self.client.delay_range = self.DELAY_RANGE
         if self.PROXY:
@@ -84,6 +90,13 @@ class InstagramService:
         logger.info(f"Session file to use: {self.SESSION_FILE}")
         self.log_public_ip()
         logger.info(f"Instagram username: {INSTAGRAM_USERNAME}")
+        # Ensure logs/ directory exists for lock file
+        lock_dir = os.path.dirname(self.LOCK_FILE)
+        if lock_dir and not os.path.exists(lock_dir):
+            try:
+                os.makedirs(lock_dir, exist_ok=True)
+            except Exception as e:
+                logger.error(f"Failed to create lock file directory {lock_dir}: {e}")
         # Try to load session settings if available
         if os.path.exists(self.SESSION_FILE) and os.path.getsize(self.SESSION_FILE) > 0:
             try:
@@ -112,16 +125,18 @@ class InstagramService:
                 # Validate the new session
                 if not self._validate_session():
                     # Write lock file immediately on failed validation
+                    error_msg = 'Login failed: session validation failed\n'
                     with open(self.LOCK_FILE, 'w', encoding='utf-8') as lockf:
-                        lockf.write('Login failed: session validation failed\n')
-                    logger.error(f"Login failed, lock file created: {self.LOCK_FILE}")
+                        lockf.write(error_msg)
+                    logger.error(f"Login failed, lock file created: {self.LOCK_FILE}\nReason: {error_msg}")
                     raise Exception("Login succeeded but session validation failed")
             except Exception as e:
                 # Write lock file immediately on any login exception
+                error_msg = f'Login failed: {str(e)}\n'
                 try:
                     with open(self.LOCK_FILE, 'w', encoding='utf-8') as lockf:
-                        lockf.write(f'Login failed: {str(e)}\n')
-                    logger.error(f"Login failed, lock file created: {self.LOCK_FILE}")
+                        lockf.write(error_msg)
+                    logger.error(f"Login failed, lock file created: {self.LOCK_FILE}\nReason: {error_msg}")
                 except Exception as lock_e:
                     logger.error(f"Failed to write lock file: {lock_e}")
                 logger.error(f"❌ Failed to login to Instagram: {e}")

@@ -12,8 +12,8 @@ c. Get required solution conytext from the code files in `src` and other codes a
 
 1. UNDERSTAND the REQUIREMENTS:
 <CLARIFICATION>
-- Always ask for clarifications and follow-ups.
-- Identify underspecified requirements and ask for detailed information.
+- Always ask for clarifications and follow-ups if you aren't sure. No need to ask trivial questions.
+- Identify underspecified requirements and ask for detailed information if not obvious.
 - Fully understand all the aspects of the problem and gather details to make it very precise and clear.
 - Ask towards all the hypothesis and assumptions needed to be made. Remove all the ambiguities and uncertainties.
 - Suggest solutions that I didn't think about, i.e. anticipate my needs and things to be specified.

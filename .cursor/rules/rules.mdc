@@ -1,6 +1,4 @@
 ---
-description: Instructions to be always followed.
-globs: 
 alwaysApply: true
 ---
 These should be respected ALWAYS:
