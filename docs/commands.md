@@ -1,6 +1,6 @@
 # Important Commands
 
-This document stores frequently used and important terminal commands for the project's development and deployment. For commands containing sensitive information, a redacted version is provided here, while the full unredacted version is stored securely in `docs/.sensitive_commands.mdc`.
+This document stores frequently used and important terminal commands for the project's development and deployment. For commands containing sensitive information, a redacted version is provided here, while the full unredacted version is stored securely in `docs/.sensitive_commands.md`.
 
 ## 1. General Commands
 
@@ -144,16 +144,6 @@ This document stores frequently used and important terminal commands for the pro
     git merge --abort
     ```
 
--   `curl <url>`: Transfers data from or to a server.
-    ```bash
-    curl http://51.16.86.204:8000/health
-    ```
-
--   `wget -qO- <url>`: Non-interactive network downloader (quiet output, send to stdout).
-    ```bash
-    wget -qO- http://localhost:8000/health
-    ```
-
 -   `ls -la <path>`: Lists directory contents in long format, including hidden files.
     ```bash
     ls -la /opt/insta-auto-ai-post/
@@ -211,12 +201,12 @@ This document stores frequently used and important terminal commands for the pro
 
 -   `scp -i <key_file> <source> <destination>`: Securely copies files between hosts.
     ```bash
-    scp -i insta-auto-ai-post-key.pem test_secrets_manager.py ec2-user@51.16.86.204:/opt/insta-auto-ai-post/
+    scp -i insta-auto-ai-post-key.pem test_secrets_manager.py ec2-user@<IP>:/opt/insta-auto-ai-post/
     ```
 
 ## 2. AWS and Deployment Commands (Redacted)
 
-Commands in this section contain sensitive information and are presented in a redacted format. The full, unredacted versions are available in `docs/.sensitive_commands.mdc`.
+Commands in this section contain sensitive information and are presented in a redacted format. The full, unredacted versions are available in `docs/.sensitive_commands.md`.
 
 -   `aws configure`: Configures AWS CLI with access keys, secret keys, region, and output format.
     ```bash
@@ -308,5 +298,5 @@ Commands in this section contain sensitive information and are presented in a re
 -   **General Commands**: Add directly to Section 1 of this file (`docs/commands.md`).
 -   **Sensitive Commands**:
     1.  Add a redacted version to Section 2 of this file (`docs/commands.md`), using placeholders like `[REDACTED_INFO]`.
-    2.  Add the full, unredacted version to `docs/.sensitive_commands.mdc`.
-    3.  Ensure `docs/.sensitive_commands.mdc` is listed in `.gitignore`. 
+    2.  Add the full, unredacted version to `docs/.sensitive_commands.md`.
+    3.  Ensure `docs/.sensitive_commands.md` is listed in `.gitignore`. 

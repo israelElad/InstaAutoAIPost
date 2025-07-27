@@ -15,11 +15,11 @@ print("[Gemini] os imported")
 import logging
 print("[Gemini] logging imported")
 try:
-    import google.generativeai as genai
-    print("[Gemini] google.generativeai imported")
+    from google import genai
+    print("[Gemini] google.genai imported")
 except ImportError:
     genai = None
-    print("[Gemini] google.generativeai import failed")
+    print("[Gemini] google.genai import failed")
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +39,29 @@ class GeminiCaptionService(AICaptionService):
         if not self.api_key:
             logger.warning("Gemini API key not found. Set GEMINI_API_KEY in environment or config.")
         try:
-            import google.generativeai as genai
-            self.genai = genai
+            from google import genai
+            self.client = genai.Client(api_key=self.api_key) if self.api_key else None
+            print("[Gemini] Client initialized successfully")
         except ImportError:
-            self.genai = None
-            logger.error("google-generativeai package not installed. Run 'pip install google-generativeai'.")
+            self.client = None
+            logger.error("google-genai package not installed. Run 'pip install google-genai'.")
+        except Exception as e:
+            self.client = None
+            logger.error(f"Failed to initialize Gemini client: {e}")
+        self.disclaimers = [
+            "התמונות צולמו על ידי, בלי פילטרים או AI. התיאור? AI כתב לי! 😉",
+            "אלה התמונות שלי מהמצלמה, אמיתיות לגמרי (בלי עזרת AI/פילטרים). התיאור הגיע מהבינה.",
+            "התמונות? אני צילמתי, 100% טבעי. את התיאור ה-AI הכין לי.",
+            "אני מאחורי העדשה, בלי פילטרים. התיאור? ה-AI עשה את הקסם.",
+            "הצילומים צולמו על ידי, בלי התערבות של AI או פילטרים. התיאור זה AI לגמרי.",
+            "תמונות שצילמתי כמו פעם, בלי עזרים. התיאור? החבר'ה מה-AI כתבו.",
+            "רק אני והמצלמה, בלי AI ובלי פילטרים. התיאור זה כבר סיפור אחר (AI).",
+            "מה שרואים צולם על ידי, נאמן למקור. התיאור באדיבות AI."
+        ]
+        self.disclaimer_index = 0
 
     def generate_caption(self, image_path: str, metadata: Dict) -> Dict:
-        if not self.api_key or not self.genai:
+        if not self.api_key or not self.client:
             print("[Gemini] API not available, using mock response.")
             logger.warning("Gemini API not available, using mock response.")
             return {
@@ -55,20 +70,20 @@ class GeminiCaptionService(AICaptionService):
                 'hashtags': "#nature #photography #landscape #travel #explore"
             }
         try:
-            print(f"[Gemini] Configuring API client...")
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            print(f"[Gemini] Using new google-genai client...")
             print(f"[Gemini] Reading image: {image_path}")
             with open(image_path, 'rb') as f:
                 image_bytes = f.read()
+            import random
+            disclaimer = random.choice(self.disclaimers)
             prompt = (
                 "You are an expert Instagram content creator. "
                 "Write a short, light, and engaging Instagram caption (max 150 characters) for a nature photo taken at the following location. "
                 "The caption should be friendly, simple, and relatable (no literary or poetic language). Mention the location naturally. "
+                "Try to mention what's special and unique and beautiful about this photo. "
                 "Write from a MALE perspective using male Hebrew grammar and pronouns (e.g., 'ממליץ' not 'ממליצה', 'אוהב' not 'אוהבת'). "
                 "Include 5-10 relevant hashtags in both Hebrew and English for maximum reach. "
-                "At the end, add this disclaimer in Hebrew: '# את התמונות אני צילמתי, בלי פילטרים/AI, אבל התיאור נוצר ע\"י AI :)'\n"
+                f"At the end, add this disclaimer in Hebrew: '# {disclaimer}'\n"
                 f"Location: {metadata.get('location', 'Unknown')}\n"
                 "Output format:\n"
                 "Hebrew: ...\n"
@@ -78,14 +93,16 @@ class GeminiCaptionService(AICaptionService):
             result = {}
             def call_gemini():
                 try:
-                    response = model.generate_content(
-                        [prompt, {"mime_type": "image/jpeg", "data": image_bytes}]
+                    import PIL.Image
+                    import io
+                    img = PIL.Image.open(io.BytesIO(image_bytes))
+                    response = self.client.models.generate_content(
+                        model='gemini-2.5-pro',
+                        contents=[prompt, img]
                     )
                     print(f"[Gemini] Received response from Gemini API.")
                     text = response.text if hasattr(response, 'text') else str(response)
-                    print(f"[Gemini] Raw response text: {text[:300]}...")
                     en, he, hashtags = self._parse_gemini_response(text)
-                    print(f"[Gemini] Parsed HE: {he}\n[Gemini] Parsed hashtags: {hashtags}")
                     result['en'] = en
                     result['he'] = he
                     result['hashtags'] = hashtags
@@ -95,9 +112,9 @@ class GeminiCaptionService(AICaptionService):
             thread = threading.Thread(target=call_gemini)
             start_time = time.time()
             thread.start()
-            thread.join(timeout=10)
+            thread.join(timeout=30)
             if thread.is_alive():
-                print("[Gemini] API call timed out after 10 seconds. Aborting.")
+                print("[Gemini] API call timed out after 30 seconds. Aborting.")
                 return {
                     'en': f"A beautiful nature photo taken at {metadata.get('location', 'an unknown location')} (timeout).",
                     'he': f"תמונה יפה של טבע שצולמה ב{metadata.get('location', 'מקום לא ידוע')} (timeout)",
@@ -123,14 +140,10 @@ class GeminiCaptionService(AICaptionService):
     def _parse_gemini_response(self, text: str):
         import re
         he = hashtags = ''
-        he_match = re.search(r'Hebrew: ?(.*?)(?:\n|$)', text, re.DOTALL)
+        he_match = re.search(r'Hebrew: ?(.*?)(?:\nHashtags:|$)', text, re.DOTALL)
         hashtags_match = re.search(r'Hashtags: ?(.*)', text, re.DOTALL)
         if he_match:
             he = he_match.group(1).strip()
         if hashtags_match:
             hashtags = hashtags_match.group(1).strip()
-        # Always append the disclaimer in Hebrew if not present
-        disclaimer = "# את התמונות אני צילמתי, בלי פילטרים/AI, אבל התיאור נוצר ע\"י AI :)"
-        if disclaimer not in he:
-            he = f"{he}\n{disclaimer}"
-        return '', he, hashtags 
+        return '', he, hashtags

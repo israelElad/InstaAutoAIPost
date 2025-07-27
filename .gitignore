@@ -178,3 +178,4 @@ docs/.sensitive_commands.md
 temp/
 insta-auto-ai-post-key-unix.pem
 session.json
+deployment_info.json
