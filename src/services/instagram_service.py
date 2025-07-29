@@ -47,12 +47,10 @@ class InstagramService:
     def _validate_session(self) -> bool:
         logger = logging.getLogger(__name__)
         try:
-            if INSTAGRAM_USERNAME:
-                self.client.user_info_by_username(INSTAGRAM_USERNAME)
-                logger.debug("Session validation succeeded.")
-                return True
-            logger.debug("No INSTAGRAM_USERNAME set for session validation.")
-            return False
+            # Use get_timeline_feed() to validate the session as per instagrapi best practices
+            self.client.get_timeline_feed()
+            logger.debug("Session validation succeeded using get_timeline_feed().")
+            return True
         except Exception as e:
             logger.error(f"Session validation failed: {e}")
             logger.error("Exception Trace:")
@@ -79,7 +77,7 @@ class InstagramService:
         logger = logging.getLogger(__name__)
         logger.info("=== Instagram Posting Pre-Check ===")
         self.log_public_ip()
-        logger.info(f"Instagram username: {INSTAGRAM_USERNAME}")
+        logger.info(f"Instagram username: {self.client.username if hasattr(self.client, 'username') else 'N/A'}")
         logger.info(f"Image key: {image_key}")
         logger.info(f"Generated caption: {caption}")
         logger.info("====================================")
@@ -89,7 +87,7 @@ class InstagramService:
         session_loaded = False
         logger.info(f"Session file to use: {self.SESSION_FILE}")
         self.log_public_ip()
-        logger.info(f"Instagram username: {INSTAGRAM_USERNAME}")
+        logger.info(f"Instagram username (from config): {INSTAGRAM_USERNAME}") # Keep this for initial login context
         # Ensure logs/ directory exists for lock file
         lock_dir = os.path.dirname(self.LOCK_FILE)
         if lock_dir and not os.path.exists(lock_dir):
@@ -435,7 +433,7 @@ class InstagramService:
             try:
                 # Log pre-posting info (image_key may be None if not provided)
                 self.log_public_ip()
-                logger.info(f"Instagram username: {INSTAGRAM_USERNAME}")
+                logger.info(f"Instagram username (logged in): {self.client.username if hasattr(self.client, 'username') else 'N/A'}")
                 if image_key:
                     logger.info(f"Image key: {image_key}")
                 logger.info(f"Generated caption: {caption}")
@@ -757,4 +755,4 @@ def convert_dms_to_decimal_standalone(dms):
         
     except Exception as e:
         logger.error(f"Error converting DMS {dms}: {e}")
-        return None 
+        return None
