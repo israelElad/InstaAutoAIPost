@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+from ..config import GEMINI_API_KEY # Import GEMINI_API_KEY from config
 
 print("[Gemini] ai_caption_service.py loaded")
 try:
@@ -34,7 +35,8 @@ class AICaptionService(ABC):
 
 class GeminiCaptionService(AICaptionService):
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv('GEMINI_API_KEY')
+        # Use API key from config if not provided directly
+        self.api_key = api_key or GEMINI_API_KEY
         print(f"[Gemini] Loaded API key: {'FOUND' if self.api_key else 'NOT FOUND'}")
         if not self.api_key:
             logger.warning("Gemini API key not found. Set GEMINI_API_KEY in environment or config.")

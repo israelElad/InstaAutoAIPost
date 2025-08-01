@@ -111,7 +111,6 @@ The project follows a modular structure, separating concerns into handlers, serv
 - **Session File**: `session.json` stores Instagram authentication tokens and device settings
 - **Session Validation**: Automatic validation of session validity before API calls
 - **Fallback Authentication**: Graceful fallback to username/password login if session is invalid
-- **User Agent Management**: Samsung Galaxy S23 Android 14 user agent to avoid detection
 
 ### 8.2 Session Debugging Findings
 - **EC2 Environment**: ✅ Working session persistence (1364 bytes session file)
@@ -138,5 +137,61 @@ To prevent repeated failed login attempts and potential account/IP blacklisting,
 - On startup, if this lock file exists, the app will exit immediately and will not attempt any further Instagram API calls.
 - This mechanism ensures that after a failed login, the app does not enter a restart loop or risk further lockouts from Instagram.
 - To clear the lockout and allow the app to attempt login again, manually delete the `login_failed.lock` file after resolving the underlying issue (e.g., updating credentials or resolving security alerts).
+
+## 9. Operational Considerations and Failure Handling
+
+This section describes the application's behavior in various operational scenarios.
+
+### 9.1 Successful Post
+
+If the application successfully processes an image and posts it to Instagram:
+- A success message is logged.
+- The application exits with code 0.
+- The Docker container stops.
+- The `login_failed.lock` file is *not* created.
+
+### 9.2 Expected Graceful Failure
+
+If there's an expected failure during image processing or validation (e.g., `ImageValidationError`):
+- An error message is logged.
+- A JSON response with a 400 status code and an error message is returned.
+- The application exits with code 0.
+- The Docker container stops.
+- The `login_failed.lock` file is *not* created.
+
+### 9.3 Unexpected Failure
+
+If there's an unexpected exception during the application's execution:
+- An error message is logged.
+- A JSON response with a 500 status code and an error message is returned.
+- The application exits with code 0.
+- The Docker container stops.
+- The `login_failed.lock` file is *not* created.
+
+### 9.4 EC2 Instance Shutdown/Crash
+
+If the EC2 instance is shut down or crashes:
+- The Docker container is also shut down.
+- Upon EC2 instance restart, the Docker container will *not* automatically restart due to `restart: on-failure:0` in `docker-compose.yml`.
+- The application will only run again if the `deploy_ec2.py` script is executed.
+
+### 9.5 Instagram Login/Session Failures
+
+If the application fails to log in to Instagram or validate the session:
+- The application will attempt to log in up to 3 times with exponential backoff.
+- If all login attempts fail, the `login_failed.lock` file is created.
+- The application exits with code 0.
+- The Docker container stops.
+- The application will *not* automatically retry posting. Manual intervention is required to resolve the login issue and delete the `login_failed.lock` file.
+
+### 9.6 Preventing Bot-Like Behavior
+
+The application is designed to minimize the risk of being flagged as a bot by Instagram:
+- The application processes and attempts to post only *one* image per execution.
+- The `login_failed.lock` mechanism prevents repeated login attempts.
+- The `InstagramService` implements a retry mechanism with exponential backoff for API calls.
+- A proxy server (if configured) provides a consistent IP address.
+
+However, it's still possible to trigger rate limits or account blocks if the credentials are invalid, the session is consistently invalid, or the application exhibits other suspicious behavior. Regular monitoring of the application logs and adherence to Instagram's API usage guidelines are recommended.
 
 This document serves as a living guide and will be updated as the technical landscape of the project evolves.

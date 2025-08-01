@@ -8,14 +8,16 @@ import datetime
 LOCK_FILE_PATH = "/app/locks/login_failed.lock"
 
 # Set up logging first
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('logs/app.log'),
-        logging.StreamHandler()
-    ]
-)
+# Ensure basicConfig is only called once to prevent duplicate loggers
+if not logging.root.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('logs/app.log'),
+            logging.StreamHandler()
+        ]
+    )
 logger = logging.getLogger(__name__)
 
 def wait_on_lock():
@@ -150,4 +152,4 @@ def main():
     #     raise
 
 if __name__ == "__main__":
-    main() 
+    main()

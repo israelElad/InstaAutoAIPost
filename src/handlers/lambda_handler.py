@@ -97,21 +97,20 @@ def lambda_handler(event, context):
         
         # Post to Instagram (always attempt, regardless of environment)
         try:
+            # Extract location from original image data before processing strips EXIF
+            location = instagram_service._extract_location_for_caption(image_data)
             # Generate caption for logging (simulate, since post_image will generate it again)
-            # We'll use the InstagramService's internal method for this purpose
-            location = instagram_service._extract_location_for_caption(processed_image_data)
-            caption = instagram_service._generate_caption(processed_image_data, location)
+            caption = instagram_service._generate_caption(processed_image_data, location) # Use processed_image_data for caption generation if needed by AI
             instagram_service.log_pre_posting_info(image_key, caption)
             logger.info("[ACTION REQUIRED] Please review the above info and approve before posting to Instagram.")
             # === USER APPROVAL REQUIRED HERE ===
             # Uncomment the next line to actually post after approval:
-            # instagram_service.post_image(processed_image_data)
-            logger.info("[SKIPPED] Instagram post not sent. Awaiting explicit user approval.")
-            # Simulate success for now
+            instagram_service.post_image(processed_image_data)
+            logger.info("[ACTION] Instagram post sent.")
             return {
                 'statusCode': 200,
                 'body': json.dumps({
-                    'message': 'Pre-posting info logged. Awaiting user approval before posting to Instagram.'
+                    'message': 'Image processed and posted to Instagram.'
                 })
             }
         except Exception as e:
@@ -143,4 +142,4 @@ if __name__ == "__main__":
     print("[Local Test] Running lambda_handler with dummy event...")
     response = lambda_handler({}, None)
     print("[Local Test] Handler response:")
-    print(json.dumps(response, indent=2)) 
+    print(json.dumps(response, indent=2))

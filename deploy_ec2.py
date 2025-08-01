@@ -157,41 +157,47 @@ def force_deploy_to_ec2(public_ip, package_file):
     # Step 2: Delete the lock file if it exists
     run_ssh_command(public_ip, f"sudo rm -f {LOCK_FILE}", "Deleting lock file if it exists")
 
-    # Step 3: Force rebuild Docker image without cache
+    # Step 3: Ensure old containers are removed and force image rebuild
+    if not run_ssh_command(public_ip, f"cd {DEPLOY_DIR} && docker-compose rm -f", "Removing old containers"):
+        print("   ❌ Failed to remove old containers (might not exist)")
+        pass # Continue anyway if no containers to remove
+
+    # Explicitly remove the Docker image to force a fresh build
+    if not run_ssh_command(public_ip, f"docker rmi $(docker images -q insta-auto-ai-post-app)", "Removing old Docker image to force rebuild"):
+        print("   ❌ Failed to remove old Docker image (might not exist)")
+        pass # Continue anyway if image not found
+
+    # Step 4: Force rebuild Docker image without cache
     if not run_ssh_command(public_ip, f"cd {DEPLOY_DIR} && docker-compose build --no-cache", "Force rebuilding Docker image without cache"):
         print("   ❌ Failed to force rebuild Docker image")
         return False
 
-    # Step 4: Start containers (safe, no memory reset)
+    # Step 5: Start containers (safe, no memory reset)
     if not run_ssh_command(public_ip, f"cd {DEPLOY_DIR} && docker-compose up -d", "Starting containers safely (no memory reset)"):
         print("   ❌ Failed to start containers")
         return False
 
-    # Step 5: Download package from S3
+    # Step 6: Download package from S3
     download_cmd = f"aws s3 cp s3://insta-auto-ai-post-bucket/deployments/{package_file} /tmp/{package_file}"
     if not run_ssh_command(public_ip, download_cmd, "Downloading deployment package"):
         return False
 
-    # Step 6: Backup and completely clean deploy directory, but preserve session.json and login_failed.lock
+    # Step 7: Backup and completely clean deploy directory, but preserve session.json and login_failed.lock
     cleanup_cmd = f"cd {DEPLOY_DIR} && find . ! -name 'session.json' ! -name 'login_failed.lock' ! -name '.' -maxdepth 1 -exec sudo rm -rf {{}} +"
     if not run_ssh_command(public_ip, cleanup_cmd, "Cleaning deploy directory but preserving session.json and login_failed.lock"):
         return False
 
-    # Step 7: Extract new package to /tmp/deployment, then copy to deploy directory
+    # Step 8: Extract new package to /tmp/deployment, then copy to deploy directory
     extract_cmd = f"rm -rf /tmp/deployment && mkdir -p /tmp/deployment && cd /tmp && tar -xzf {package_file} -C /tmp/deployment && sudo cp -a /tmp/deployment/. {DEPLOY_DIR}/ && sudo chown -R ec2-user:ec2-user {DEPLOY_DIR}"
     if not run_ssh_command(public_ip, extract_cmd, "Extracting new package, copying to deploy directory, and setting ownership"):
         return False
 
-    # Step 8: Restore session.json if it was backed up
+    # Step 9: Restore session.json if it was backed up
     restore_session_cmd = f"if [ -f {SESSION_BACKUP} ]; then mv {SESSION_BACKUP} {SESSION_FILE}; fi"
     run_ssh_command(public_ip, restore_session_cmd, "Restoring session.json if it was backed up")
 
-    # Step 9: Set permissions
+    # Step 10: Set permissions
     if not run_ssh_command(public_ip, f"chmod +x {DEPLOY_DIR}/main.py", "Setting file permissions"):
-        return False
-
-    # Step 10: Restart containers again to ensure new code is loaded (safe, no memory reset)
-    if not run_ssh_command(public_ip, f"cd {DEPLOY_DIR} && docker-compose restart app", "Restarting app container (safe, no memory reset)"):
         return False
 
     # Step 11: Wait for containers to be ready

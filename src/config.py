@@ -42,7 +42,8 @@ class Config:
                 'INSTAGRAM_PASSWORD': secret_data.get('INSTAGRAM_PASSWORD'),
                 'AWS_ACCESS_KEY_ID': secret_data.get('AWS_ACCESS_KEY_ID'),
                 'AWS_SECRET_ACCESS_KEY': secret_data.get('AWS_SECRET_ACCESS_KEY'),
-                'S3_BUCKET_NAME': secret_data.get('S3_BUCKET_NAME')
+                'S3_BUCKET_NAME': secret_data.get('S3_BUCKET_NAME'),
+                'GEMINI_API_KEY': secret_data.get('GEMINI_API_KEY') # Add Gemini API Key
             }
             
             logger.info("✅ Credentials loaded from AWS Secrets Manager")
@@ -58,7 +59,8 @@ class Config:
             'INSTAGRAM_PASSWORD': os.getenv('INSTAGRAM_PASSWORD'),
             'AWS_ACCESS_KEY_ID': os.getenv('AWS_ACCESS_KEY_ID'),
             'AWS_SECRET_ACCESS_KEY': os.getenv('AWS_SECRET_ACCESS_KEY'),
-            'S3_BUCKET_NAME': os.getenv('S3_BUCKET_NAME')
+            'S3_BUCKET_NAME': os.getenv('S3_BUCKET_NAME'),
+            'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY') # Add Gemini API Key
         }
         
         logger.info("⚠️  Credentials loaded from environment variables (fallback)")
@@ -76,7 +78,8 @@ class Config:
         required_keys = [
             'INSTAGRAM_USERNAME',
             'INSTAGRAM_PASSWORD',
-            'S3_BUCKET_NAME'
+            'S3_BUCKET_NAME',
+            'GEMINI_API_KEY' # Gemini API Key is now required
         ]
         
         if not self._credentials:
@@ -125,6 +128,9 @@ def get_s3_bucket_name() -> Optional[str]:
 def get_session_file() -> str:
     return "/app/session.json"
 
+def get_gemini_api_key() -> Optional[str]:
+    return config.get('GEMINI_API_KEY')
+
 # Direct exports for backward compatibility (lazy properties)
 class LazyConfig:
     @property
@@ -146,6 +152,10 @@ class LazyConfig:
     @property
     def S3_BUCKET_NAME(self) -> Optional[str]:
         return get_s3_bucket_name()
+    
+    @property
+    def GEMINI_API_KEY(self) -> Optional[str]:
+        return get_gemini_api_key()
 
 # Create a proxy object that provides the lazy properties
 _lazy_config = LazyConfig()
@@ -156,6 +166,7 @@ INSTAGRAM_PASSWORD = _lazy_config.INSTAGRAM_PASSWORD
 AWS_ACCESS_KEY_ID = _lazy_config.AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY = _lazy_config.AWS_SECRET_ACCESS_KEY
 S3_BUCKET_NAME = _lazy_config.S3_BUCKET_NAME
+GEMINI_API_KEY = _lazy_config.GEMINI_API_KEY # Export Gemini API Key
 
 # Instagram image requirements
 INSTAGRAM_MIN_ASPECT_RATIO = 0.8
