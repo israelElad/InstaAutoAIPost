@@ -106,7 +106,8 @@ class InstagramService:
                     session_loaded = True
                     logger.info("✅ Instagram session loaded and valid.")
                 else:
-                    logger.info("⚠️ Session invalid, will re-login with username/password.")
+                    logger.warning("⚠️ Session invalid. Will attempt re-login. The session file will be overwritten upon success.")
+
             except Exception as e:
                 logger.warning(f"⚠️ Couldn't login using session: {e}")
                 logger.error("Exception Trace:")
@@ -132,6 +133,9 @@ class InstagramService:
                 # Write lock file immediately on any login exception
                 error_msg = f'Login failed: {str(e)}\n'
                 try:
+                    # Proactively create the directory before writing the lock file
+                    lock_dir = os.path.dirname(self.LOCK_FILE)
+                    os.makedirs(lock_dir, exist_ok=True)
                     with open(self.LOCK_FILE, 'w', encoding='utf-8') as lockf:
                         lockf.write(error_msg)
                     logger.error(f"Login failed, lock file created: {self.LOCK_FILE}\nReason: {error_msg}")
@@ -356,24 +360,72 @@ class InstagramService:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
 
+    def _parse_distance(self, address: str) -> float:
+        import re
+        if not address:
+            return float('inf')
+        match = re.search(r'(\d+\.?\d*)\s*mi', address)
+        return float(match.group(1)) if match else float('inf')
+
+    def _has_hebrew(self, text: str) -> bool:
+        return any('\u0590' <= char <= '\u05EA' for char in text)
+
+    def _is_forbidden(self, text: str) -> bool:
+        forbidden_keywords = ['palestine', 'ramallah']
+        return any(keyword in text.lower() for keyword in forbidden_keywords)
+
     def get_instagram_location_name_and_obj(self, lat, lng):
         logger = logging.getLogger(__name__)
         try:
             logger.info(f"🔍 Searching Instagram locations for coordinates: {lat:.6f}, {lng:.6f}")
-            
-            # Add rate limiting delay before API call
             time.sleep(random.uniform(2, 5))
-            
             locations = self.client.location_search(lat, lng)
-            if locations:
-                location = locations[0]
-                logger.info(f"✅ Found Instagram location: {location.name} (ID: {location.pk})")
-                return location.name, location
-            else:
+
+            if not locations:
                 logger.info("⚠️ No Instagram locations found for these coordinates")
+                return None, None
+
+            logger.info(f"Found {len(locations)} potential Instagram locations. Filtering and sorting...")
+
+            scored_locations = []
+            for loc in locations:
+                loc_name = loc.name or ""
+                loc_address = loc.address or ""
+                
+                if self._is_forbidden(loc_name) or self._is_forbidden(loc_address):
+                    logger.debug(f"Filtering out forbidden location: {loc_name}")
+                    continue
+
+                distance = self._parse_distance(loc_address)
+                
+                # Scoring logic
+                score = 0
+                if self._has_hebrew(loc_name) or self._has_hebrew(loc_address):
+                    score += 100
+                if "israel" in loc_name.lower() or "israel" in loc_address.lower():
+                    score += 50
+                
+                # Lower distance is better, so we subtract it.
+                score -= distance
+                
+                scored_locations.append({'score': score, 'location': loc})
+
+            if not scored_locations:
+                logger.warning("⚠️ All found locations were filtered out.")
+                return None, None
+
+            # Sort by score in descending order
+            sorted_locations = sorted(scored_locations, key=lambda x: x['score'], reverse=True)
+            
+            best_location_info = sorted_locations
+            best_location_obj = best_location_info['location']
+            logger.info(f"✅ Best location selected: {best_location_obj.name} (Score: {best_location_info['score']})")
+            
+            return best_location_obj.name, best_location_obj
+
         except Exception as e:
-            logger.warning(f"⚠️ Failed to find Instagram location: {e}")
-        return None, None
+            logger.warning(f"⚠️ Failed to find or process Instagram location: {e}")
+            return None, None
 
     def _extract_location_for_caption(self, image_data: bytes):
         logger = logging.getLogger(__name__)
@@ -393,33 +445,40 @@ class InstagramService:
             logger.info("⚠️ No location data extracted from image")
         return location
 
-    def post_image(self, image_data: bytes, caption: Optional[str] = None) -> bool:
+    def post_image(self, image_data: bytes, caption: Optional[str] = None, location: Optional[dict] = None) -> bool:
         """
         Post an image to Instagram (public).
         Args:
             image_data (bytes): The image data to post
             caption (str): Optional caption for the post
+            location (dict): Optional pre-extracted location data
         Returns:
             bool: True if posting was successful
         """
         # If no caption provided, will be generated in _post_image_internal
         final_caption = str(caption) if caption is not None else None
-        return self._post_image_internal(image_data, final_caption, is_private=False)
+        return self._post_image_internal(image_data, final_caption, location=location, is_private=False)
 
-    def _post_image_internal(self, image_data: bytes, caption: Optional[str] = None, is_private: bool = False, image_key: Optional[str] = None) -> bool:
+    def _post_image_internal(self, image_data: bytes, caption: Optional[str] = None, location: Optional[dict] = None, is_private: bool = False, image_key: Optional[str] = None) -> bool:
         """
         Internal method to post an image to Instagram.
         Args:
             image_data (bytes): The image data to post
             caption (str): Caption for the post (if None, will be generated)
+            location (dict): Optional pre-extracted location data
             is_private (bool): Whether to post as private
         Returns:
             bool: True if posting was successful
         """
         logger = logging.getLogger(__name__)
         try:
-            # Extract location from EXIF and Instagram
-            location = self._extract_location_for_caption(image_data)
+            # Extract location from EXIF only if not already provided
+            if location is None:
+                logger.info("Location not provided, extracting from image data...")
+                location = self._extract_location_for_caption(image_data)
+            else:
+                logger.info("Using pre-extracted location data.")
+
             # Generate caption using Gemini if not provided
             if not caption:
                 caption = self._generate_caption(image_data, location)
@@ -448,7 +507,10 @@ class InstagramService:
                         }
                     }
                     if location and location.get('insta_obj'):
+                        logger.info(f"Using Instagram location: {location['insta_obj'].name} (ID: {location['insta_obj'].pk})")
                         kwargs['location'] = location['insta_obj']
+                    else:
+                        logger.info("No Instagram location object available for this post")
                     return self.client.photo_upload(Path(temp_file_path), **kwargs)
                 # Upload photo with retry mechanism
                 media = self._retry_with_backoff(post_photo)

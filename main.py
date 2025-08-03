@@ -136,6 +136,9 @@ def main():
             sys.exit(0)
     except Exception as e:
         logger.error(f"Main application failed: {e}")
+    finally:
+        # Ensure all logs are flushed before exiting
+        logging.shutdown()
         # Exit 0 to avoid restart loop on failure
         sys.exit(0)
     

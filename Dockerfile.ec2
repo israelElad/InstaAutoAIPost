@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 
 # Create directories for logs and session
-RUN mkdir -p logs
+RUN mkdir -p logs /app/locks
 
 # Create main application entry point
 COPY main.py .

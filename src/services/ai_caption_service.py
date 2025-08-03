@@ -91,6 +91,7 @@ class GeminiCaptionService(AICaptionService):
                 "Hebrew: ...\n"
                 "Hashtags: #tag1 #tag2 #tag3 ...\n"
             )
+            logger.info(f"Gemini Prompt: {prompt}")
             print(f"[Gemini] Sending request to Gemini API...")
             result = {}
             def call_gemini():

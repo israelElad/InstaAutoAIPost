@@ -99,14 +99,24 @@ def lambda_handler(event, context):
         try:
             # Extract location from original image data before processing strips EXIF
             location = instagram_service._extract_location_for_caption(image_data)
-            # Generate caption for logging (simulate, since post_image will generate it again)
-            caption = instagram_service._generate_caption(processed_image_data, location) # Use processed_image_data for caption generation if needed by AI
+            # Generate the caption once and reuse it
+            caption = instagram_service._generate_caption(processed_image_data, location)
             instagram_service.log_pre_posting_info(image_key, caption)
             logger.info("[ACTION REQUIRED] Please review the above info and approve before posting to Instagram.")
             # === USER APPROVAL REQUIRED HERE ===
             # Uncomment the next line to actually post after approval:
-            instagram_service.post_image(processed_image_data)
-            logger.info("[ACTION] Instagram post sent.")
+            # Post the image with the pre-generated caption
+            if instagram_service.post_image(processed_image_data, caption=caption, location=location):
+                logger.info("[ACTION] Instagram post sent successfully.")
+                
+                # Delete the image from S3 only after a successful post
+                logger.info(f"Attempting to delete image {image_key} from S3...")
+                s3_service.delete_image(image_key)
+                logger.info(f"Successfully deleted image {image_key} from S3.")
+            else:
+                # This path may not be hit if post_image raises an exception, but it's good practice
+                # to handle an explicit failure signal.
+                raise Exception("post_image returned False, indicating a posting failure.")
             return {
                 'statusCode': 200,
                 'body': json.dumps({
