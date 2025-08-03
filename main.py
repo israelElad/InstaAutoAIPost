@@ -63,8 +63,6 @@ def debug_aws_env_and_metadata():
             logger.info(f"[ENV] {k}={v}")
         elif k == "INSTAGRAM_PASSWORD":
             logger.info(f"[ENV] {k} is set: {'yes' if v else 'no'} (value hidden)")
-        elif k == "S3_BUCKET_NAME":
-            logger.info(f"[ENV] {k}={v}")
     try:
         logger.info("[DEBUG] Attempting to curl EC2 instance metadata for IAM info...")
         result = subprocess.run([

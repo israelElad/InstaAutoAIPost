@@ -236,7 +236,7 @@ pip install -r requirements.txt
   - `INSTAGRAM_PASSWORD`
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`
-  - `S3_BUCKET_NAME`
+  - `insta-auto-ai-post-bucket`
 - Name the secret: `insta-auto-ai-post-secrets`
 - Set the region to `il-central-1`
 - Save the secret.
@@ -279,7 +279,7 @@ You can test the full workflow locally before deploying to AWS EC2. This is usef
    INSTAGRAM_PASSWORD=your_instagram_password
    AWS_ACCESS_KEY_ID=your_access_key_id
    AWS_SECRET_ACCESS_KEY=your_secret_access_key
-   S3_BUCKET_NAME=your_s3_bucket_name
+   insta-auto-ai-post-bucket=your_s3_bucket_name
    ```
 2. **Upload at least one valid image to your S3 bucket** (see validator requirements).
 

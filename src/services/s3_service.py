@@ -3,7 +3,6 @@ from botocore.exceptions import ClientError, NoCredentialsError
 from datetime import datetime
 import os
 import logging
-from ..config import get_s3_bucket_name
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -15,8 +14,8 @@ class S3Service:
             region = os.getenv('AWS_REGION', 'us-east-1')
             logger.info(f"Initializing S3Service. Detected region: {region}")
             
-            s3_bucket_name = get_s3_bucket_name()
-            logger.info(f"S3_BUCKET_NAME: {s3_bucket_name}")
+            self.bucket_name = "insta-auto-ai-post-bucket"
+            logger.info(f"S3_BUCKET_NAME: {self.bucket_name}")
             
             if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
                 logger.info("Running on AWS Lambda. Using execution role credentials.")
@@ -38,7 +37,6 @@ class S3Service:
                     logger.info("Running locally. Using default AWS credentials (CLI config, IAM role, etc.).")
                     self.s3_client = boto3.client('s3', region_name=region)
             
-            self.bucket_name = s3_bucket_name
             
         except NoCredentialsError:
             logger.error("AWS credentials not found. On Lambda, ensure the execution role has S3 permissions. Locally, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.")

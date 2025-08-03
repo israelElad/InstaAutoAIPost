@@ -42,7 +42,6 @@ class Config:
                 'INSTAGRAM_PASSWORD': secret_data.get('INSTAGRAM_PASSWORD'),
                 'AWS_ACCESS_KEY_ID': secret_data.get('AWS_ACCESS_KEY_ID'),
                 'AWS_SECRET_ACCESS_KEY': secret_data.get('AWS_SECRET_ACCESS_KEY'),
-                'S3_BUCKET_NAME': secret_data.get('S3_BUCKET_NAME'),
                 'GEMINI_API_KEY': secret_data.get('GEMINI_API_KEY') # Add Gemini API Key
             }
             
@@ -59,7 +58,6 @@ class Config:
             'INSTAGRAM_PASSWORD': os.getenv('INSTAGRAM_PASSWORD'),
             'AWS_ACCESS_KEY_ID': os.getenv('AWS_ACCESS_KEY_ID'),
             'AWS_SECRET_ACCESS_KEY': os.getenv('AWS_SECRET_ACCESS_KEY'),
-            'S3_BUCKET_NAME': os.getenv('S3_BUCKET_NAME'),
             'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY') # Add Gemini API Key
         }
         
@@ -78,7 +76,6 @@ class Config:
         required_keys = [
             'INSTAGRAM_USERNAME',
             'INSTAGRAM_PASSWORD',
-            'S3_BUCKET_NAME',
             'GEMINI_API_KEY' # Gemini API Key is now required
         ]
         
@@ -122,8 +119,6 @@ def get_aws_access_key_id() -> Optional[str]:
 def get_aws_secret_access_key() -> Optional[str]:
     return config.get('AWS_SECRET_ACCESS_KEY')
 
-def get_s3_bucket_name() -> Optional[str]:
-    return config.get('S3_BUCKET_NAME')
 
 def get_session_file() -> str:
     return "/app/session.json"
@@ -150,8 +145,6 @@ class LazyConfig:
         return get_aws_secret_access_key()
     
     @property
-    def S3_BUCKET_NAME(self) -> Optional[str]:
-        return get_s3_bucket_name()
     
     @property
     def GEMINI_API_KEY(self) -> Optional[str]:
@@ -165,7 +158,6 @@ INSTAGRAM_USERNAME = _lazy_config.INSTAGRAM_USERNAME
 INSTAGRAM_PASSWORD = _lazy_config.INSTAGRAM_PASSWORD
 AWS_ACCESS_KEY_ID = _lazy_config.AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY = _lazy_config.AWS_SECRET_ACCESS_KEY
-S3_BUCKET_NAME = _lazy_config.S3_BUCKET_NAME
 GEMINI_API_KEY = _lazy_config.GEMINI_API_KEY # Export Gemini API Key
 
 # Instagram image requirements
