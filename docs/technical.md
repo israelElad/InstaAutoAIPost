@@ -195,3 +195,10 @@ The application is designed to minimize the risk of being flagged as a bot by In
 However, it's still possible to trigger rate limits or account blocks if the credentials are invalid, the session is consistently invalid, or the application exhibits other suspicious behavior. Regular monitoring of the application logs and adherence to Instagram's API usage guidelines are recommended.
 
 This document serves as a living guide and will be updated as the technical landscape of the project evolves.
+
+## 10. November 2025 Findings
+
+- Recent redeployments proved that the infrastructure, Secrets Manager integration, and session handling all work correctly.
+- Instagram now returns **BadPassword/blacklist** responses even with valid credentials, explicitly instructing us to change IP or verify by email.
+- Repeated attempts quickly lead to rate-limit responses (missing encryption headers), forcing long cooldowns.
+- Conclusion: Continuing to use Instagrapi + EC2 is no longer viable without substantial anti-detection work. Future users/contributors should review other OSS implementations, Android automation (e.g., Insomniac), or restricted official APIs.

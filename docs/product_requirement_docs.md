@@ -61,4 +61,13 @@ The Instagram Auto Poster aims to automate the process of publishing visual cont
 - Integration with other social media platforms.
 - Advanced analytics and reporting on posting activities.
 
+## 7. Project Status & Recommendations (Nov 2025)
+
+- **Status**: The project has been paused/discontinued after repeated Instagram anti-bot countermeasures blocked the EC2 IP and API-based login attempts.
+- **Finding**: Instagram’s unofficial API endpoints now aggressively fingerprint IP, device, and behaviour. Continuing would require constant reverse engineering, which defeats the goal of a low-maintenance autoposter.
+- **Recommendation**:
+  - If someone wants to revive this effort, first perform a deep review of current anti-ban techniques used in actively maintained open-source projects.
+  - Consider switching to Android automation frameworks such as **Insomniac** (UI-level automation) which are harder to detect, or move to the official but limited **Instagram Graph API**.
+  - Alternatively, pivot to a platform with an official posting API to avoid the cat-and-mouse game entirely.
+
 This document will be regularly updated to reflect new requirements or changes in existing functionalities.

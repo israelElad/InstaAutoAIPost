@@ -64,4 +64,10 @@ graph TD
 
 The application is deployed using Docker Compose on an AWS EC2 instance. The `Dockerfile.ec2` and `docker-compose.yml` facilitate this deployment. This setup ensures persistence and easy management of the application container.
 
+## 6. Current Status (Nov 2025)
+
+- **Operational Pause**: Further development is on hold because Instagram now blocks the EC2 IP and flags the project’s API-based automation as suspicious.
+- **Implication**: Although the architecture remains valid, any future deployment must incorporate new anti-detection strategies (fresh IP, device fingerprint rotation, or Android-level automation).
+- **Next Step for Future Users/Contributors**: Evaluate third-party solutions (e.g., Insomniac, official Graph API, or another platform entirely) before reusing this infrastructure.
+
 This document will be updated as the architecture evolves or more detailed components are identified.

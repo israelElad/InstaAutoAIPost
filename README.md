@@ -320,13 +320,13 @@ You can test the full workflow locally before deploying to AWS EC2. This is usef
 
 ## Instagram API Best Practices & Anti-Ban Measures
 
-To reduce the risk of Instagram bans or rate limits, this project now follows best practices from the [instagrapi usage guide](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html):
+Despite following best practices from the [instagrapi usage guide](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html), Instagram currently blocks this automation flow. The notes below remain for historical reference:
 
 - **Consistent IP Address:** Instagram is less likely to flag activity if requests come from a consistent IP. Since dedicated proxies are not free, we moved all AWS resources to the Israel region (`il-central-1`) to ensure requests originate from the same country as your account. This helps reduce suspicious login attempts and ban risk.
 - **Delays Between Requests:** The code is designed to mimic real user behavior by adding random delays between requests. This helps avoid triggering Instagram's anti-bot systems.
 - **Session Reuse:** Instead of logging in with your username and password on every run, the project uses session storage and reuse. This mimics how a real device stays logged in, further reducing suspicious activity.
 
-For more details and advanced anti-ban strategies, see the [instagrapi best practices guide](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html).
+For more details and advanced anti-ban strategies, see the [instagrapi best practices guide](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html), but be aware that the official app and Android automation options (e.g., Insomniac) are currently more viable.
 
 ---
 
@@ -351,5 +351,21 @@ This project was originally built for AWS Lambda, but was migrated to EC2 for th
 - **Scheduling:** If needed, posting can be scheduled using cron or other automation on the EC2 instance.
 
 > **Migration Tip:** The transition process involved many experimental scripts and chat-driven iterations. Most of these were not pushed to the repo, as Cursor and AI-driven workflows tend to generate a lot of temporary files and scripts. **If you need to transition or refactor, it is strongly recommended to start fresh rather than trying to clean up or refactor everything.** In the current state of Cursor and AI models, starting from a clean slate is faster and less error-prone.
+
+> **Status (Nov 2025): Project Paused**
+>
+> Instagram’s latest anti-bot enforcement now blocks the EC2 IP/device fingerprint and flags Instagrapi logins even with valid credentials. Continuing would require constant anti-detection work (rotating IPs, device fingerprints, Android automation, etc.), which defeats the goal of a low-maintenance autoposter. This repo is kept for reference only.
+
+- Infrastructure, Secrets Manager integration, and deployment scripts all work as designed.
+- Instagram now alternates between rate-limit responses (missing encryption headers) and explicit **BadPassword/IP blacklist** errors even with correct credentials.
+- Latest responses instruct us to change IP/confirm via email, proving the current EC2 IP/device fingerprint is flagged.
+- Continuing would require heavy anti-detection work or a different approach (Android automation or official Graph API).
+
+## Considering Instagram Automation Going Forward
+
+1. Review actively maintained open-source projects to understand their current anti-ban techniques.
+2. Evaluate Android UI automation frameworks such as **Insomniac**, which behave like the real app.
+3. Consider the official **Instagram Graph API** (limited but supported) or pivot to another platform with an official posting API.
+4. If you continue with Instagrapi, plan for rotating IPs/proxies, device fingerprints, and ongoing maintenance.
 
 --- 

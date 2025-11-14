@@ -240,6 +240,7 @@ def verify_deployment(public_ip):
 
 def main():
     """Main function."""
+    DEPLOY_DIR = "/opt/insta-auto-ai-post"
     print("🚀 Force EC2 Deployment")
     print("=" * 50)
     
@@ -265,6 +266,9 @@ def main():
     if not verify_deployment(public_ip):
         print("❌ Deployment verification failed")
         return
+
+    # Display logs
+    run_ssh_command(public_ip, f"cd {DEPLOY_DIR} && docker-compose logs app --tail=50", "Displaying container logs")
     
     print(f"\n🎉 Force deployment completed!")
 

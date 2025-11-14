@@ -131,21 +131,19 @@ class LazyConfig:
     @property
     def INSTAGRAM_USERNAME(self) -> Optional[str]:
         return get_instagram_username()
-    
+
     @property
     def INSTAGRAM_PASSWORD(self) -> Optional[str]:
         return get_instagram_password()
-    
+
     @property
     def AWS_ACCESS_KEY_ID(self) -> Optional[str]:
         return get_aws_access_key_id()
-    
+
     @property
     def AWS_SECRET_ACCESS_KEY(self) -> Optional[str]:
         return get_aws_secret_access_key()
-    
-    @property
-    
+
     @property
     def GEMINI_API_KEY(self) -> Optional[str]:
         return get_gemini_api_key()
@@ -158,7 +156,7 @@ INSTAGRAM_USERNAME = _lazy_config.INSTAGRAM_USERNAME
 INSTAGRAM_PASSWORD = _lazy_config.INSTAGRAM_PASSWORD
 AWS_ACCESS_KEY_ID = _lazy_config.AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY = _lazy_config.AWS_SECRET_ACCESS_KEY
-GEMINI_API_KEY = _lazy_config.GEMINI_API_KEY # Export Gemini API Key
+GEMINI_API_KEY = _lazy_config.GEMINI_API_KEY
 
 # Instagram image requirements
 INSTAGRAM_MIN_ASPECT_RATIO = 0.8
